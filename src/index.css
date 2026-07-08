@@ -43,6 +43,34 @@ html, body, #root {
   --color-rbc-bg: #FFFFFF;
 }
 
+.senior-preview {
+  color: #111111;
+}
+
+.senior-preview button,
+.senior-preview input,
+.senior-preview [role="button"] {
+  min-height: 56px;
+}
+
+.senior-preview h1,
+.senior-preview h2,
+.senior-preview h3 {
+  letter-spacing: 0;
+}
+
+.senior-preview p,
+.senior-preview span,
+.senior-preview input,
+.senior-preview button {
+  font-weight: 500;
+}
+
+.senior-preview .font-light,
+.senior-preview .font-extralight {
+  font-weight: 400 !important;
+}
+
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #C3E2FA; border-radius: 4px; }

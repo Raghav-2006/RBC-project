@@ -12,7 +12,7 @@ interface AppPreviewProps {
 export default function AppPreview({ version, onBack }: AppPreviewProps) {
   const { t } = useApp();
 
-  const versionLabels = {
+  const versionLabels: Record<AppVersion, string> = {
     student: t('student'),
     regular: t('regular'),
     senior: t('senior'),
@@ -26,7 +26,6 @@ export default function AppPreview({ version, onBack }: AppPreviewProps) {
         </Button>
         <div className="flex items-center gap-2">
           <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-            version === 'student' ? 'bg-blue-100 text-blue-700' :
             version === 'senior' ? 'bg-amber-100 text-amber-700' :
             'bg-rbc-bright-lightest text-rbc-blue'
           }`}>

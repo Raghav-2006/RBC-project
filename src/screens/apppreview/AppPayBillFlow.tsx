@@ -37,6 +37,8 @@ interface Props {
   onExitToMoveMoney: () => void;
   /** If provided, land directly on Pay form pre-filled with this payee */
   initialPayee?: Payee | null;
+  seniorMode?: boolean;
+  startAt?: 'hub' | 'payForm' | 'managePayees';
 }
 
 interface FormState {
@@ -53,8 +55,14 @@ const formatDate = (iso: string) => {
   return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 };
 
-export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, initialPayee }: Props) {
-  const [step, setStep] = useState<Step>(initialPayee ? 'payForm' : 'hub');
+export default function AppPayBillFlow({
+  onExitToDashboard,
+  onExitToMoveMoney,
+  initialPayee,
+  seniorMode = false,
+  startAt,
+}: Props) {
+  const [step, setStep] = useState<Step>(startAt ?? (initialPayee ? 'payForm' : 'hub'));
   const [sheet, setSheet] = useState<Sheet>(null);
   const [payees, setPayees] = useState<Payee[]>(seedPayees);
   const [form, setForm] = useState<FormState>({
@@ -80,7 +88,7 @@ export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, i
   const [payFormInitialTab, setPayFormInitialTab] = useState<'New' | 'Upcoming' | 'History'>('New');
 
   return (
-    <div className="relative h-full">
+    <div className={`relative h-full ${seniorMode ? 'senior-preview high-contrast' : ''}`}>
       {step === 'hub' && (
         <PayBillsHub
           onBack={onExitToMoveMoney}
@@ -100,6 +108,7 @@ export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, i
             setPayFormInitialTab('Upcoming');
             setStep('payForm');
           }}
+          seniorMode={seniorMode}
         />
       )}
 

@@ -4,8 +4,11 @@ import {
 } from '../../components/ui/RBCIcons';
 
 interface MoveMoneyHubProps {
+  onOpenTransfer: () => void;
   onOpenETransfer: () => void;
   onOpenPayBills: () => void;
+  onOpenDeposit: () => void;
+  seniorMode?: boolean;
 }
 
 interface Row {
@@ -14,9 +17,9 @@ interface Row {
   onClick?: () => void;
 }
 
-export default function MoveMoneyHub({ onOpenETransfer, onOpenPayBills }: MoveMoneyHubProps) {
+export default function MoveMoneyHub({ onOpenTransfer, onOpenETransfer, onOpenPayBills, onOpenDeposit, seniorMode = false }: MoveMoneyHubProps) {
   const canadaRows: Row[] = [
-    { icon: <TransferIcon size={20} stroke="#006AC3" />, label: 'Transfer Between My Accounts' },
+    { icon: <TransferIcon size={20} stroke="#006AC3" />, label: 'Transfer Between My Accounts', onClick: onOpenTransfer },
     { icon: <PayBillsIcon size={20} stroke="#006AC3" />, label: 'Pay a Bill', onClick: onOpenPayBills },
     {
       icon: <SendIcon size={20} stroke="#006AC3" />,
@@ -24,7 +27,7 @@ export default function MoveMoneyHub({ onOpenETransfer, onOpenPayBills }: MoveMo
       onClick: onOpenETransfer,
     },
     { icon: <PeopleIcon size={20} stroke="#006AC3" />, label: 'Send to an RBC Client' },
-    { icon: <CameraIcon size={20} stroke="#006AC3" />, label: 'Deposit a Cheque' },
+    { icon: <CameraIcon size={20} stroke="#006AC3" />, label: 'Deposit a Cheque', onClick: onOpenDeposit },
     { icon: <SplitIcon size={20} stroke="#006AC3" />, label: 'Split with Friends' },
   ];
 
@@ -35,7 +38,7 @@ export default function MoveMoneyHub({ onOpenETransfer, onOpenPayBills }: MoveMo
   ];
 
   return (
-    <div className="flex flex-col bg-white min-h-full">
+    <div className={`flex flex-col bg-white min-h-full ${seniorMode ? 'senior-preview high-contrast' : ''}`}>
       {/* Blue header — leaves room for status-bar / notch */}
       <div
         className="relative pt-14 pb-3 px-5"
@@ -49,21 +52,21 @@ export default function MoveMoneyHub({ onOpenETransfer, onOpenPayBills }: MoveMo
       </div>
 
       {/* Title row */}
-      <div className="px-5 pt-6 pb-3 flex items-center justify-between">
-        <h1 className="text-[26px] font-extralight text-rbc-dark leading-none">Move Money</h1>
+      <div className={`px-5 flex items-center justify-between ${seniorMode ? 'pt-7 pb-5' : 'pt-6 pb-3'}`}>
+        <h1 className={`${seniorMode ? 'text-[34px] font-normal' : 'text-[26px] font-extralight'} text-rbc-dark leading-none`}>Move Money</h1>
         <KebabIcon size={18} stroke="#6B7280" />
       </div>
 
       {/* Canada section */}
-      <SectionHeader title="Canada" />
+      <SectionHeader title="Canada" seniorMode={seniorMode} />
       {canadaRows.map((r, i) => (
-        <HubRow key={i} icon={r.icon} label={r.label} onClick={r.onClick} />
+        <HubRow key={i} icon={r.icon} label={r.label} onClick={r.onClick} seniorMode={seniorMode} />
       ))}
 
       {/* International section */}
-      <SectionHeader title="International" />
+      <SectionHeader title="International" seniorMode={seniorMode} />
       {internationalRows.map((r, i) => (
-        <HubRow key={i} icon={r.icon} label={r.label} onClick={r.onClick} />
+        <HubRow key={i} icon={r.icon} label={r.label} onClick={r.onClick} seniorMode={seniorMode} />
       ))}
 
       {/* Spacer for bottom nav */}
@@ -72,24 +75,26 @@ export default function MoveMoneyHub({ onOpenETransfer, onOpenPayBills }: MoveMo
   );
 }
 
-function SectionHeader({ title }: { title: string }) {
+function SectionHeader({ title, seniorMode }: { title: string; seniorMode?: boolean }) {
   return (
-    <div className="bg-[#F2F4F5] px-5 py-3 border-y border-[#E5E7EA]">
-      <h3 className="text-[15px] text-rbc-dark">{title}</h3>
+    <div className={`bg-[#F2F4F5] px-5 border-y border-[#E5E7EA] ${seniorMode ? 'py-4' : 'py-3'}`}>
+      <h3 className={`${seniorMode ? 'text-[20px] font-medium' : 'text-[15px]'} text-rbc-dark`}>{title}</h3>
     </div>
   );
 }
 
-function HubRow({ icon, label, onClick }: Row) {
+function HubRow({ icon, label, onClick, seniorMode }: Row & { seniorMode?: boolean }) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-4 px-5 py-4 text-left cursor-pointer border-b border-[#E5E7EA] active:bg-[#F2F4F5]"
+      className={`w-full flex items-center px-5 text-left cursor-pointer border-b border-[#E5E7EA] active:bg-[#F2F4F5] ${
+        seniorMode ? 'gap-5 py-5' : 'gap-4 py-4'
+      }`}
     >
-      <span className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-rbc-bright/60 shrink-0">
+      <span className={`inline-flex items-center justify-center rounded-full border border-rbc-bright/60 shrink-0 ${seniorMode ? 'w-12 h-12' : 'w-9 h-9'}`}>
         {icon}
       </span>
-      <span className="flex-1 text-[16px] text-rbc-dark">{label}</span>
+      <span className={`flex-1 ${seniorMode ? 'text-[21px]' : 'text-[16px]'} text-rbc-dark`}>{label}</span>
       <ChevronRightIcon size={16} stroke="#9CA3AF" />
     </button>
   );

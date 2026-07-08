@@ -12,6 +12,8 @@ type Sheet = 'account' | 'recipient' | 'notify' | 'when' | 'frequency' | null;
 interface Props {
   onExitToDashboard: () => void;
   onExitToMoveMoney: () => void;
+  seniorMode?: boolean;
+  startAt?: 'hub' | 'send';
 }
 
 interface FormState {
@@ -33,8 +35,8 @@ const formatDate = (iso: string) => {
   return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 };
 
-export default function AppETransferFlow({ onExitToDashboard, onExitToMoveMoney }: Props) {
-  const [step, setStep] = useState<Step>('hub');
+export default function AppETransferFlow({ onExitToDashboard, onExitToMoveMoney, seniorMode = false, startAt = 'hub' }: Props) {
+  const [step, setStep] = useState<Step>(startAt);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [recipients, setRecipients] = useState<Recipient[]>(seedRecipients);
   const [form, setForm] = useState<FormState>({
@@ -54,7 +56,7 @@ export default function AppETransferFlow({ onExitToDashboard, onExitToMoveMoney 
   );
 
   return (
-    <div className="relative h-full">
+    <div className={`relative h-full ${seniorMode ? 'senior-preview high-contrast' : ''}`}>
       {step === 'hub' && (
         <ETransferHub
           onBack={onExitToMoveMoney}

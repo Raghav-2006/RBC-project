@@ -13,17 +13,19 @@ interface Props {
   onCancelPayment: () => void;
   onViewPastPayments: () => void;
   onViewUpcomingPayments: () => void;
+  seniorMode?: boolean;
 }
 
 export default function PayBillsHub({
   onBack, onPayABill, onAddPayee, onManagePayees, onCancelPayment,
   onViewPastPayments, onViewUpcomingPayments,
+  seniorMode = false,
 }: Props) {
   const frequent = payees[0];
 
   return (
-    <div className="flex flex-col bg-white min-h-full pb-24">
-      <BlueHeader title="Pay Bills" onBack={onBack} />
+    <div className={`flex flex-col bg-white min-h-full pb-24 ${seniorMode ? 'senior-preview high-contrast' : ''}`}>
+      <BlueHeader title="Pay Bills" onBack={onBack} seniorMode={seniorMode} />
 
       {/* Frequently Paid */}
       <div className="bg-[#F2F4F5] px-5 py-3 flex items-center justify-between border-y border-[#E5E7EA]">
@@ -72,7 +74,7 @@ export default function PayBillsHub({
   );
 }
 
-function BlueHeader({ title, onBack }: { title: string; onBack?: () => void }) {
+function BlueHeader({ title, onBack, seniorMode }: { title: string; onBack?: () => void; seniorMode?: boolean }) {
   return (
     <div
       className="relative pt-14 pb-4 px-5"
@@ -84,7 +86,7 @@ function BlueHeader({ title, onBack }: { title: string; onBack?: () => void }) {
         </button>
       )}
       <div className="text-center">
-        <span className="text-white text-[16px] font-medium">{title}</span>
+        <span className={`text-white font-medium ${seniorMode ? 'text-[22px]' : 'text-[16px]'}`}>{title}</span>
       </div>
       <div className="absolute right-4 top-12">
         <div className="w-7 h-7 bg-white rounded-md rounded-bl-none flex items-center justify-center">

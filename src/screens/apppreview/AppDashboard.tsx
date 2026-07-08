@@ -14,6 +14,9 @@ import AccountSummary from './AccountSummary';
 import MoveMoneyHub from './MoveMoneyHub';
 import AppETransferFlow from './AppETransferFlow';
 import AppPayBillFlow from './AppPayBillFlow';
+import AppTransferFlow from './AppTransferFlow';
+import AppDepositFlow from './AppDepositFlow';
+import AppVoidChequeFlow from './AppVoidChequeFlow';
 
 interface AppDashboardProps {
   version: AppVersion;
@@ -27,17 +30,25 @@ export default function AppDashboard({ version }: AppDashboardProps) {
   const [openAccount, setOpenAccount] = useState<Account | null>(null);
   const [inETransfer, setInETransfer] = useState(false);
   const [inPayBills, setInPayBills] = useState(false);
+  const [inTransfer, setInTransfer] = useState(false);
+  const [inDeposit, setInDeposit] = useState(false);
+  const [inVoidCheque, setInVoidCheque] = useState(false);
+  const [transferPrefill, setTransferPrefill] = useState<{ fromId?: string; toId?: string; amount?: string } | null>(null);
+  const [payBillsStartAt, setPayBillsStartAt] = useState<'hub' | 'payForm' | 'managePayees'>('hub');
+  const [eTransferStartAt, setETransferStartAt] = useState<'hub' | 'send'>('hub');
+  const [depositStartWithActions, setDepositStartWithActions] = useState(true);
 
   const isSenior = version === 'senior';
-  const isStudent = version === 'student';
 
   // e-Transfer flow overlay (no bottom nav during flow)
   if (inETransfer) {
     return (
       <div className="h-full bg-white overflow-auto">
         <AppETransferFlow
-          onExitToDashboard={() => { setInETransfer(false); setActiveTab('home'); }}
-          onExitToMoveMoney={() => setInETransfer(false)}
+          onExitToDashboard={() => { setInETransfer(false); setETransferStartAt('hub'); setActiveTab('home'); }}
+          onExitToMoveMoney={() => { setInETransfer(false); setETransferStartAt('hub'); }}
+          seniorMode={isSenior}
+          startAt={eTransferStartAt}
         />
       </div>
     );
@@ -48,9 +59,59 @@ export default function AppDashboard({ version }: AppDashboardProps) {
     return (
       <div className="h-full bg-white overflow-auto">
         <AppPayBillFlow
-          onExitToDashboard={() => { setInPayBills(false); setActiveTab('home'); }}
-          onExitToMoveMoney={() => setInPayBills(false)}
+          onExitToDashboard={() => { setInPayBills(false); setPayBillsStartAt('hub'); setActiveTab('home'); }}
+          onExitToMoveMoney={() => { setInPayBills(false); setPayBillsStartAt('hub'); }}
+          seniorMode={isSenior}
+          startAt={payBillsStartAt}
         />
+      </div>
+    );
+  }
+
+  if (inTransfer) {
+    return (
+      <div className="h-full bg-white overflow-auto">
+        <AppTransferFlow
+          onBack={() => {
+            setInTransfer(false);
+            setTransferPrefill(null);
+          }}
+          onHome={() => {
+            setInTransfer(false);
+            setTransferPrefill(null);
+            setOpenAccount(null);
+            setActiveTab('home');
+          }}
+          initialFromId={transferPrefill?.fromId}
+          initialToId={transferPrefill?.toId}
+          initialAmount={transferPrefill?.amount}
+          seniorMode={isSenior}
+        />
+      </div>
+    );
+  }
+
+  if (inDeposit) {
+    return (
+      <div className="h-full bg-white overflow-auto">
+        <AppDepositFlow
+          onBack={() => { setInDeposit(false); setDepositStartWithActions(true); }}
+          onOpenVoidCheque={() => {
+            setInDeposit(false);
+            setDepositStartWithActions(true);
+            setInVoidCheque(true);
+          }}
+          seniorMode={isSenior}
+          startWithActions={depositStartWithActions}
+        />
+      </div>
+    );
+  }
+
+  if (inVoidCheque) {
+    return (
+      <div className="h-full bg-white overflow-auto">
+        <AppVoidChequeFlow onBack={() => setInVoidCheque(false)} seniorMode={isSenior} />
       </div>
     );
   }
@@ -60,16 +121,23 @@ export default function AppDashboard({ version }: AppDashboardProps) {
     return (
       <div className="h-full flex flex-col bg-white">
         <div className="flex-1 overflow-auto">
-          <AccountDetail account={openAccount} onBack={() => setOpenAccount(null)} />
+          <AccountDetail
+            account={openAccount}
+            onBack={() => setOpenAccount(null)}
+            onOpenTransfer={(options) => {
+              setOpenAccount(null);
+              setTransferPrefill(options ?? null);
+              setInTransfer(true);
+            }}
+            seniorMode={isSenior}
+          />
         </div>
-        <BottomNav activeTab={activeTab} onChange={(t) => { setOpenAccount(null); setActiveTab(t); }} />
+        <BottomNav activeTab={activeTab} onChange={(t) => { setOpenAccount(null); setActiveTab(t); }} seniorMode={isSenior} />
       </div>
     );
   }
 
-  // For now, only Regular Home is the fidelity-matched version.
-  // Senior/Student kept simple until Regular is approved.
-  if (isSenior || isStudent) {
+  if (version === 'student') {
     return <LegacyDashboard version={version} />;
   }
 
@@ -79,13 +147,89 @@ export default function AppDashboard({ version }: AppDashboardProps) {
 
   const banking = accounts.filter(a => a.category === 'banking');
   const credit = accounts.filter(a => a.category === 'creditCards');
+  const visaAccount = credit[0];
+
+  const openSeniorTransfer = (options?: { fromId?: string; toId?: string; amount?: string }) => {
+    setTransferPrefill(options ?? null);
+    setInTransfer(true);
+  };
+
+  const renderSeniorHome = () => (
+    <div className="flex flex-col bg-white min-h-full senior-preview high-contrast">
+      <div
+        className="px-6 pt-14 pb-7 text-white"
+        style={{ background: 'linear-gradient(155deg, #1466B8 0%, #0a4d96 40%, #00305E 100%)' }}
+      >
+        <p className="text-[17px] text-white/90">RBC Mobile</p>
+        <h1 className="mt-2 text-[36px] font-normal leading-tight">What would you like to do today?</h1>
+        <p className="mt-3 text-[19px] text-white/90">Choose one big action to get started right away.</p>
+      </div>
+
+      <div className="flex-1 bg-[#F4F6F8] px-5 py-5">
+        <div className="space-y-4">
+          <SeniorActionButton
+            title="Look at my balance"
+            description="See all your accounts and balances."
+            onClick={() => setActiveTab('accounts')}
+          />
+          <SeniorActionButton
+            title="Transfer between my accounts"
+            description="Move money between chequing, savings, or your credit card."
+            onClick={() => openSeniorTransfer()}
+          />
+          <SeniorActionButton
+            title="Pay my credit card"
+            description="Go straight to a payment for your VISA balance."
+            onClick={() => openSeniorTransfer(visaAccount ? { toId: visaAccount.id, amount: String(visaAccount.balance) } : undefined)}
+          />
+          <SeniorActionButton
+            title="Pay a bill"
+            description="Open bill payment directly."
+            onClick={() => {
+              setPayBillsStartAt('payForm');
+              setInPayBills(true);
+            }}
+          />
+          <SeniorActionButton
+            title="Manage payees"
+            description="Add, edit, or remove bill payees."
+            onClick={() => {
+              setPayBillsStartAt('managePayees');
+              setInPayBills(true);
+            }}
+          />
+          <SeniorActionButton
+            title="Send an e-Transfer"
+            description="Go straight to the send money form."
+            onClick={() => {
+              setETransferStartAt('send');
+              setInETransfer(true);
+            }}
+          />
+          <SeniorActionButton
+            title="Deposit a cheque"
+            description="Start a mobile cheque deposit."
+            onClick={() => {
+              setDepositStartWithActions(false);
+              setInDeposit(true);
+            }}
+          />
+          <SeniorActionButton
+            title="Get a void cheque"
+            description="View account details for direct deposit or payments."
+            onClick={() => setInVoidCheque(true)}
+          />
+        </div>
+      </div>
+    </div>
+  );
 
   const renderHome = () => (
-    <div className="flex flex-col bg-white">
+    <div className={`flex flex-col bg-white ${isSenior ? 'senior-preview high-contrast' : ''}`}>
       {/* Hero header with subtle wave/swirl */}
       <div className="relative overflow-hidden">
         <div
-          className="px-6 pt-14 pb-10 text-white relative"
+          className={`text-white relative ${isSenior ? 'px-6 pt-14 pb-12' : 'px-6 pt-14 pb-10'}`}
           style={{
             background: 'linear-gradient(155deg, #1466B8 0%, #0a4d96 40%, #00305E 100%)',
           }}
@@ -110,13 +254,13 @@ export default function AppDashboard({ version }: AppDashboardProps) {
             </div>
           </div>
 
-          <p className="text-[13px] font-light text-white/90 leading-none">RBC Mobile</p>
-          <h1 className="text-[28px] font-extralight leading-tight mt-1 mb-5 tracking-tight">{greeting}</h1>
+          <p className={`${isSenior ? 'text-[16px]' : 'text-[13px]'} font-light text-white/90 leading-none`}>RBC Mobile</p>
+          <h1 className={`${isSenior ? 'text-[36px] font-normal mt-2 mb-6' : 'text-[28px] font-extralight mt-1 mb-5'} leading-tight tracking-tight`}>{greeting}</h1>
 
           {/* Search pill — frosted */}
-          <div className="bg-white/20 border border-white/30 rounded-full px-4 py-3 flex items-center gap-3">
-            <SearchIcon size={16} stroke="white" />
-            <span className="text-[14.5px] text-white font-light">Search RBC Mobile</span>
+          <div className={`bg-white/20 border border-white/30 rounded-full flex items-center gap-3 ${isSenior ? 'px-5 py-4' : 'px-4 py-3'}`}>
+            <SearchIcon size={isSenior ? 20 : 16} stroke="white" />
+            <span className={`${isSenior ? 'text-[18px]' : 'text-[14.5px]'} text-white font-light`}>Search RBC Mobile</span>
           </div>
         </div>
       </div>
@@ -124,21 +268,30 @@ export default function AppDashboard({ version }: AppDashboardProps) {
       {/* Quick actions — horizontally scrollable, slight overlap with hero */}
       <div className="relative bg-[#F2F4F5] -mt-4 z-10 pt-4 pb-3">
         <div className="overflow-x-auto no-scrollbar">
-          <div className="flex gap-3 px-4 pb-1" style={{ width: 'max-content' }}>
+          <div className={`flex ${isSenior ? 'gap-4 px-5 pb-2' : 'gap-3 px-4 pb-1'}`} style={{ width: 'max-content' }}>
             {[
               { icon: <SendIcon size={26} stroke="#006AC3" />, label: 'Send', onClick: () => setInETransfer(true) },
-              { icon: <TransferIcon size={26} stroke="#006AC3" />, label: 'Transfer' },
+              {
+                icon: <TransferIcon size={26} stroke="#006AC3" />,
+                label: 'Transfer',
+                onClick: () => {
+                  setTransferPrefill(null);
+                  setInTransfer(true);
+                },
+              },
               { icon: <PayBillsIcon size={26} stroke="#006AC3" />, label: 'Pay bills', onClick: () => setInPayBills(true) },
-              { icon: <SendIcon size={26} stroke="#006AC3" />, label: 'Deposit' },
+              { icon: <SendIcon size={26} stroke="#006AC3" />, label: 'Deposit', onClick: () => setInDeposit(true) },
             ].map(qa => (
               <button
                 key={qa.label}
                 onClick={qa.onClick}
-                className="bg-white border border-gray-200 rounded-md flex flex-col items-center justify-center gap-1.5 active:bg-rbc-bright-lightest cursor-pointer shadow-sm"
-                style={{ width: '32%', minWidth: 120, height: 100 }}
+                className={`bg-white border rounded-md flex flex-col items-center justify-center active:bg-rbc-bright-lightest cursor-pointer shadow-sm ${
+                  isSenior ? 'gap-2.5 border-[#B9C6D2]' : 'gap-1.5 border-gray-200'
+                }`}
+                style={{ width: isSenior ? '40%' : '32%', minWidth: isSenior ? 152 : 120, height: isSenior ? 122 : 100 }}
               >
                 {qa.icon}
-                <span className="text-[14px] font-medium text-rbc-dark">{qa.label}</span>
+                <span className={`${isSenior ? 'text-[18px]' : 'text-[14px]'} font-medium text-rbc-dark`}>{qa.label}</span>
               </button>
             ))}
           </div>
@@ -148,7 +301,7 @@ export default function AppDashboard({ version }: AppDashboardProps) {
       {/* Accounts Overview */}
       <div className="bg-white">
         <div className="bg-[#F2F4F5] px-5 py-3 flex items-center justify-between border-b border-[#E5E7EA]">
-          <h3 className="text-[16px] font-normal text-rbc-dark">Accounts Overview</h3>
+          <h3 className={`${isSenior ? 'text-[21px] font-medium' : 'text-[16px] font-normal'} text-rbc-dark`}>Accounts Overview</h3>
           <KebabIcon size={18} stroke="#6B7280" />
         </div>
         <div className="px-5">
@@ -156,35 +309,35 @@ export default function AppDashboard({ version }: AppDashboardProps) {
             <button
               key={a.id}
               onClick={() => setOpenAccount(a)}
-              className="w-full flex items-center justify-between py-4 cursor-pointer text-left border-b"
+              className={`w-full flex items-center justify-between cursor-pointer text-left border-b ${isSenior ? 'py-5' : 'py-4'}`}
               style={{ borderColor: i === arr.length - 1 ? 'transparent' : '#E5E7EA' }}
             >
-              <span className="text-[16px] text-rbc-dark">
+              <span className={`${isSenior ? 'text-[21px]' : 'text-[16px]'} text-rbc-dark`}>
                 {a.name} ({a.accountNumber})
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-[16px] text-rbc-dark">{formatPlain(a.balance)}</span>
+                <span className={`${isSenior ? 'text-[21px]' : 'text-[16px]'} text-rbc-dark`}>{formatPlain(a.balance)}</span>
                 <ChevronRightIcon size={14} stroke="#9CA3AF" />
               </div>
             </button>
           ))}
         </div>
         <div className="px-5 pb-4 pt-1 flex items-center justify-end gap-4">
-          <button className="text-[14px] text-rbc-bright font-medium cursor-pointer">Open an account</button>
+          <button className={`${isSenior ? 'text-[17px]' : 'text-[14px]'} text-rbc-bright font-medium cursor-pointer`}>Open an account</button>
           <span className="text-gray-300">|</span>
-          <button className="text-[14px] text-rbc-bright font-medium cursor-pointer">View all</button>
+          <button className={`${isSenior ? 'text-[17px]' : 'text-[14px]'} text-rbc-bright font-medium cursor-pointer`}>View all</button>
         </div>
       </div>
 
       {/* NOMI section */}
       <div className="bg-white">
         <div className="bg-[#F2F4F5] px-5 py-3 flex items-center justify-between border-y border-[#E5E7EA]">
-          <h3 className="text-[16px] font-normal text-rbc-dark">NOMI</h3>
+          <h3 className={`${isSenior ? 'text-[21px] font-medium' : 'text-[16px] font-normal'} text-rbc-dark`}>NOMI</h3>
           <KebabIcon size={18} stroke="#6B7280" />
         </div>
         <div className="w-full flex items-center justify-between px-5 py-4">
-          <span className="text-[16px] text-rbc-dark">Insights</span>
-          <button className="text-[14px] text-rbc-bright font-medium cursor-pointer">View all</button>
+          <span className={`${isSenior ? 'text-[21px]' : 'text-[16px]'} text-rbc-dark`}>Insights</span>
+          <button className={`${isSenior ? 'text-[17px]' : 'text-[14px]'} text-rbc-bright font-medium cursor-pointer`}>View all</button>
         </div>
       </div>
 
@@ -203,41 +356,49 @@ export default function AppDashboard({ version }: AppDashboardProps) {
     <div className="h-full flex flex-col bg-white">
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        {activeTab === 'home' && renderHome()}
-        {activeTab === 'accounts' && <AccountSummary onSelectAccount={setOpenAccount} />}
+        {activeTab === 'home' && (isSenior ? renderSeniorHome() : renderHome())}
+        {activeTab === 'accounts' && <AccountSummary onSelectAccount={setOpenAccount} seniorMode={isSenior} />}
         {activeTab === 'moveMoney' && (
           <MoveMoneyHub
+            onOpenTransfer={() => {
+              setTransferPrefill(null);
+              setInTransfer(true);
+            }}
             onOpenETransfer={() => setInETransfer(true)}
             onOpenPayBills={() => setInPayBills(true)}
+            onOpenDeposit={() => setInDeposit(true)}
+            seniorMode={isSenior}
           />
         )}
         {activeTab === 'more' && renderEmpty('More')}
       </div>
 
       {/* Bottom navigation — distinctive RBC layout with gold FAB */}
-      <BottomNav activeTab={activeTab} onChange={setActiveTab} />
+      <BottomNav activeTab={activeTab} onChange={setActiveTab} seniorMode={isSenior} />
     </div>
   );
 }
 
-function BottomNav({ activeTab, onChange }: { activeTab: Tab; onChange: (t: Tab) => void }) {
+function BottomNav({ activeTab, onChange, seniorMode = false }: { activeTab: Tab; onChange: (t: Tab) => void; seniorMode?: boolean }) {
   const inactiveColor = '#6B7280';
   const activeColor = '#006AC3';
 
   return (
     <div className="relative bg-white border-t border-gray-200">
-      <div className="flex items-end justify-around pt-1 pb-1.5">
+      <div className={`flex items-end justify-around ${seniorMode ? 'pt-2 pb-2' : 'pt-1 pb-1.5'}`}>
         <NavItem
           label="Home"
           active={activeTab === 'home'}
           onClick={() => onChange('home')}
-          icon={<HomeIcon size={22} stroke={activeTab === 'home' ? activeColor : inactiveColor} filled={activeTab === 'home'} />}
+          icon={<HomeIcon size={seniorMode ? 26 : 22} stroke={activeTab === 'home' ? activeColor : inactiveColor} filled={activeTab === 'home'} />}
+          seniorMode={seniorMode}
         />
         <NavItem
           label="Accounts"
           active={activeTab === 'accounts'}
           onClick={() => onChange('accounts')}
-          icon={<CardIcon size={22} stroke={activeTab === 'accounts' ? activeColor : inactiveColor} filled={activeTab === 'accounts'} />}
+          icon={<CardIcon size={seniorMode ? 26 : 22} stroke={activeTab === 'accounts' ? activeColor : inactiveColor} filled={activeTab === 'accounts'} />}
+          seniorMode={seniorMode}
         />
         {/* Spacer for FAB */}
         <div className="w-14" />
@@ -245,19 +406,23 @@ function BottomNav({ activeTab, onChange }: { activeTab: Tab; onChange: (t: Tab)
           label="Move Money"
           active={activeTab === 'moveMoney'}
           onClick={() => onChange('moveMoney')}
-          icon={<MoveMoneyIcon size={22} stroke={activeTab === 'moveMoney' ? activeColor : inactiveColor} filled={activeTab === 'moveMoney'} />}
+          icon={<MoveMoneyIcon size={seniorMode ? 26 : 22} stroke={activeTab === 'moveMoney' ? activeColor : inactiveColor} filled={activeTab === 'moveMoney'} />}
+          seniorMode={seniorMode}
         />
         <NavItem
           label="More"
           active={activeTab === 'more'}
           onClick={() => onChange('more')}
-          icon={<MoreIcon size={22} stroke={activeTab === 'more' ? activeColor : inactiveColor} />}
+          icon={<MoreIcon size={seniorMode ? 26 : 22} stroke={activeTab === 'more' ? activeColor : inactiveColor} />}
+          seniorMode={seniorMode}
         />
       </div>
 
       {/* Gold FAB centered on the bar */}
       <motion.button
-        className="absolute left-1/2 -top-5 -translate-x-1/2 w-12 h-12 rounded-full bg-rbc-gold flex items-center justify-center shadow-md cursor-pointer"
+        className={`absolute left-1/2 -translate-x-1/2 rounded-full bg-rbc-gold flex items-center justify-center shadow-md cursor-pointer ${
+          seniorMode ? '-top-6 w-14 h-14' : '-top-5 w-12 h-12'
+        }`}
         whileTap={{ scale: 0.94 }}
         aria-label="Move Money menu"
       >
@@ -267,16 +432,36 @@ function BottomNav({ activeTab, onChange }: { activeTab: Tab; onChange: (t: Tab)
   );
 }
 
-function NavItem({ label, active, onClick, icon }: { label: string; active: boolean; onClick: () => void; icon: React.ReactNode }) {
+function NavItem({ label, active, onClick, icon, seniorMode = false }: { label: string; active: boolean; onClick: () => void; icon: React.ReactNode; seniorMode?: boolean }) {
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center gap-0.5 px-1 py-1 min-w-[56px] min-h-[44px] cursor-pointer"
+      className={`flex flex-col items-center gap-0.5 px-1 py-1 cursor-pointer ${seniorMode ? 'min-w-[68px] min-h-[58px]' : 'min-w-[56px] min-h-[44px]'}`}
     >
       {icon}
-      <span className={`text-[10.5px] ${active ? 'text-rbc-bright font-medium' : 'text-rbc-secondary'}`}>
+      <span className={`${seniorMode ? 'text-[13px]' : 'text-[10.5px]'} ${active ? 'text-rbc-bright font-medium' : 'text-rbc-secondary'}`}>
         {label}
       </span>
+    </button>
+  );
+}
+
+function SeniorActionButton({
+  title,
+  description,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full rounded-2xl border-2 border-[#B6C6D8] bg-white px-5 py-6 text-left shadow-sm"
+    >
+      <p className="text-[24px] font-semibold text-rbc-dark">{title}</p>
+      <p className="mt-2 text-[17px] leading-7 text-[#444444]">{description}</p>
     </button>
   );
 }

@@ -9,6 +9,8 @@ import {
 interface AccountDetailProps {
   account: Account;
   onBack: () => void;
+  onOpenTransfer?: (options?: { fromId?: string; toId?: string; amount?: string }) => void;
+  seniorMode?: boolean;
 }
 
 type Tab = 'transactions' | 'details';
@@ -20,7 +22,7 @@ function formatDateLabel(iso: string): string {
   return `${monthNames[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
-export default function AccountDetail({ account, onBack }: AccountDetailProps) {
+export default function AccountDetail({ account, onBack, onOpenTransfer, seniorMode = false }: AccountDetailProps) {
   const [tab, setTab] = useState<Tab>('transactions');
   const [lockCard, setLockCard] = useState(false);
 
@@ -30,7 +32,7 @@ export default function AccountDetail({ account, onBack }: AccountDetailProps) {
   const posted = txns.filter(t => t.posted);
 
   return (
-    <div className="flex flex-col bg-white min-h-full">
+    <div className={`flex flex-col bg-white min-h-full ${seniorMode ? 'senior-preview high-contrast' : ''}`}>
       {/* Header — short blue bar */}
       <div
         className="relative px-5 pt-14 pb-4"
@@ -47,19 +49,19 @@ export default function AccountDetail({ account, onBack }: AccountDetailProps) {
       </div>
 
       {/* Title block */}
-      <div className="px-5 pt-5 pb-3">
+      <div className={`px-5 ${seniorMode ? 'pt-6 pb-4' : 'pt-5 pb-3'}`}>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-[32px] font-extralight text-rbc-dark leading-none">{account.name}</h1>
-            <p className="text-[13px] text-rbc-secondary mt-1.5 tracking-wide">
+            <h1 className={`${seniorMode ? 'text-[38px] font-normal' : 'text-[32px] font-extralight'} text-rbc-dark leading-none`}>{account.name}</h1>
+            <p className={`${seniorMode ? 'text-[16px] mt-2' : 'text-[13px] mt-1.5'} text-rbc-secondary tracking-wide`}>
               {account.fullNumber ?? account.accountNumber}
             </p>
           </div>
           <KebabIcon size={18} stroke="#6B7280" />
         </div>
-        <div className="flex items-baseline gap-1.5 mt-4">
-          <span className="text-[12px] text-rbc-secondary uppercase tracking-wide">CAD</span>
-          <span className="text-[40px] font-extralight text-rbc-dark leading-none">
+        <div className={`flex items-baseline gap-1.5 ${seniorMode ? 'mt-5' : 'mt-4'}`}>
+          <span className={`${seniorMode ? 'text-[16px]' : 'text-[12px]'} text-rbc-secondary uppercase tracking-wide`}>CAD</span>
+          <span className={`${seniorMode ? 'text-[48px] font-normal' : 'text-[40px] font-extralight'} text-rbc-dark leading-none`}>
             {formatPlain(account.balance)}
           </span>
         </div>
@@ -135,10 +137,17 @@ export default function AccountDetail({ account, onBack }: AccountDetailProps) {
             ).map((p, i) => (
               <button
                 key={i}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-gray-300 bg-white text-rbc-dark cursor-pointer"
+                onClick={() => {
+                  if (isVisa && p.label === 'Make a payment') {
+                    onOpenTransfer?.({ toId: account.id, amount: String(account.balance) });
+                  }
+                }}
+                className={`flex items-center gap-2 rounded-full border border-gray-300 bg-white text-rbc-dark cursor-pointer ${
+                  seniorMode ? 'px-5 py-3.5' : 'px-4 py-2.5'
+                }`}
               >
                 {p.icon}
-                {p.label && <span className="text-[14.5px] font-medium">{p.label}</span>}
+                {p.label && <span className={`${seniorMode ? 'text-[18px]' : 'text-[14.5px]'} font-medium`}>{p.label}</span>}
               </button>
             ))}
           </div>

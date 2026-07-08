@@ -25,11 +25,6 @@ export default function VersionChooser({ onSelectVersion, onBack }: VersionChoos
 
   const versions = [
     {
-      id: 'student' as AppVersion,
-      emoji: '🎓',
-      color: 'from-blue-400 to-rbc-bright',
-    },
-    {
       id: 'regular' as AppVersion,
       emoji: '📱',
       color: 'from-rbc-blue to-rbc-bright',
@@ -56,7 +51,7 @@ export default function VersionChooser({ onSelectVersion, onBack }: VersionChoos
           <p className="text-rbc-secondary text-lg">{t('chooseAnOption')}</p>
         </motion.div>
 
-        <div className="grid sm:grid-cols-3 gap-8 mb-8">
+        <div className="grid sm:grid-cols-2 gap-8 mb-8 max-w-3xl mx-auto">
           {versions.map((v) => (
             <motion.div key={v.id} variants={item}>
               <Card
