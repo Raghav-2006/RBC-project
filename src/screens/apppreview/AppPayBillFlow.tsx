@@ -77,6 +77,7 @@ export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, i
     { id: 'rp2', payee: 'Toronto Hydro', accountNumber: '7823 **** **** 194', amount: 134.50, date: todayISO(), fromAccountId: 'chq1' },
   ]);
   const [cancellingPayment, setCancellingPayment] = useState<RecentPayment | null>(null);
+  const [payFormInitialTab, setPayFormInitialTab] = useState<'New' | 'Upcoming' | 'History'>('New');
 
   return (
     <div className="relative h-full">
@@ -85,22 +86,33 @@ export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, i
           onBack={onExitToMoveMoney}
           onPayABill={(prefill) => {
             if (prefill) setForm(f => ({ ...f, to: prefill }));
+            setPayFormInitialTab('New');
             setStep('payForm');
           }}
           onAddPayee={() => setStep('addPayeeSearch')}
           onManagePayees={() => setStep('managePayees')}
           onCancelPayment={() => setStep('cancelHub')}
+          onViewPastPayments={() => {
+            setPayFormInitialTab('History');
+            setStep('payForm');
+          }}
+          onViewUpcomingPayments={() => {
+            setPayFormInitialTab('Upcoming');
+            setStep('payForm');
+          }}
         />
       )}
 
       {step === 'payForm' && (
         <PayForm
+          key={payFormInitialTab}
           form={form}
           onBack={() => setStep('hub')}
           onOpenSheet={setSheet}
           onChange={(patch) => setForm(f => ({ ...f, ...patch }))}
           onContinue={() => setStep('review')}
           recentPayments={recentPayments}
+          initialTab={payFormInitialTab}
         />
       )}
 
@@ -306,7 +318,7 @@ export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, i
 
 // ── Pay form ─────────────────────────────────────────────────────────────
 function PayForm({
-  form, onBack, onOpenSheet, onChange, onContinue, recentPayments,
+  form, onBack, onOpenSheet, onChange, onContinue, recentPayments, initialTab,
 }: {
   form: FormState;
   onBack: () => void;
@@ -314,9 +326,10 @@ function PayForm({
   onChange: (patch: Partial<FormState>) => void;
   onContinue: () => void;
   recentPayments: RecentPayment[];
+  initialTab?: 'New' | 'Upcoming' | 'History';
 }) {
   const canContinue = form.from && parseFloat(form.amount || '0') > 0 && form.to;
-  const [tab, setTab] = useState<'New' | 'Upcoming' | 'History'>('New');
+  const [tab, setTab] = useState<'New' | 'Upcoming' | 'History'>(initialTab ?? 'New');
 
   return (
     <div className="flex flex-col bg-white min-h-full pb-24">

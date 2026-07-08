@@ -11,9 +11,14 @@ interface Props {
   onAddPayee: () => void;
   onManagePayees: () => void;
   onCancelPayment: () => void;
+  onViewPastPayments: () => void;
+  onViewUpcomingPayments: () => void;
 }
 
-export default function PayBillsHub({ onBack, onPayABill, onAddPayee, onManagePayees, onCancelPayment }: Props) {
+export default function PayBillsHub({
+  onBack, onPayABill, onAddPayee, onManagePayees, onCancelPayment,
+  onViewPastPayments, onViewUpcomingPayments,
+}: Props) {
   const frequent = payees[0];
 
   return (
@@ -60,8 +65,8 @@ export default function PayBillsHub({ onBack, onPayABill, onAddPayee, onManagePa
         <h3 className="text-[15px] text-rbc-dark">Manage Bills</h3>
       </div>
       <HubRow icon={<TrashIcon />} label="Cancel or Stop a Payment" onClick={onCancelPayment} />
-      <HubRow icon={<PastPaymentsIcon />} label="View Past Payments" />
-      <HubRow icon={<UpcomingIcon />} label="View Upcoming Payments" />
+      <HubRow icon={<PastPaymentsIcon />} label="View Past Payments" onClick={onViewPastPayments} />
+      <HubRow icon={<UpcomingIcon />} label="View Upcoming Payments" onClick={onViewUpcomingPayments} />
       <HubRow icon={<PeopleIcon size={20} stroke="#006AC3" />} label="Manage Payees" onClick={onManagePayees} />
     </div>
   );
