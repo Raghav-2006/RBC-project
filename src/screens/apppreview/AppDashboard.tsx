@@ -11,6 +11,8 @@ import {
 } from '../../components/ui/RBCIcons';
 import AccountDetail from './AccountDetail';
 import AccountSummary from './AccountSummary';
+import MoveMoneyHub from './MoveMoneyHub';
+import AppETransferFlow from './AppETransferFlow';
 
 interface AppDashboardProps {
   version: AppVersion;
@@ -22,9 +24,22 @@ export default function AppDashboard({ version }: AppDashboardProps) {
   useApp();
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [openAccount, setOpenAccount] = useState<Account | null>(null);
+  const [inETransfer, setInETransfer] = useState(false);
 
   const isSenior = version === 'senior';
   const isStudent = version === 'student';
+
+  // e-Transfer flow overlay (no bottom nav during flow)
+  if (inETransfer) {
+    return (
+      <div className="h-full bg-white overflow-auto">
+        <AppETransferFlow
+          onExitToDashboard={() => { setInETransfer(false); setActiveTab('home'); }}
+          onExitToMoveMoney={() => setInETransfer(false)}
+        />
+      </div>
+    );
+  }
 
   // Account detail overlay (shared across tabs)
   if (openAccount) {
@@ -97,13 +112,14 @@ export default function AppDashboard({ version }: AppDashboardProps) {
         <div className="overflow-x-auto no-scrollbar">
           <div className="flex gap-3 px-4 pb-1" style={{ width: 'max-content' }}>
             {[
-              { icon: <SendIcon size={26} stroke="#006AC3" />, label: 'Send' },
+              { icon: <SendIcon size={26} stroke="#006AC3" />, label: 'Send', onClick: () => setInETransfer(true) },
               { icon: <TransferIcon size={26} stroke="#006AC3" />, label: 'Transfer' },
               { icon: <PayBillsIcon size={26} stroke="#006AC3" />, label: 'Pay bills' },
               { icon: <SendIcon size={26} stroke="#006AC3" />, label: 'Deposit' },
             ].map(qa => (
               <button
                 key={qa.label}
+                onClick={qa.onClick}
                 className="bg-white border border-gray-200 rounded-md flex flex-col items-center justify-center gap-1.5 active:bg-rbc-bright-lightest cursor-pointer shadow-sm"
                 style={{ width: '32%', minWidth: 120, height: 100 }}
               >
@@ -152,10 +168,10 @@ export default function AppDashboard({ version }: AppDashboardProps) {
           <h3 className="text-[16px] font-normal text-rbc-dark">NOMI</h3>
           <KebabIcon size={18} stroke="#6B7280" />
         </div>
-        <button className="w-full flex items-center justify-between px-5 py-4 cursor-pointer text-left">
+        <div className="w-full flex items-center justify-between px-5 py-4">
           <span className="text-[16px] text-rbc-dark">Insights</span>
-          <button className="text-[14px] text-rbc-bright font-medium">View all</button>
-        </button>
+          <button className="text-[14px] text-rbc-bright font-medium cursor-pointer">View all</button>
+        </div>
       </div>
 
       {/* Spacer above tab bar so last row isn't hidden */}
@@ -175,7 +191,7 @@ export default function AppDashboard({ version }: AppDashboardProps) {
       <div className="flex-1 overflow-auto">
         {activeTab === 'home' && renderHome()}
         {activeTab === 'accounts' && <AccountSummary onSelectAccount={setOpenAccount} />}
-        {activeTab === 'moveMoney' && renderEmpty('Move Money')}
+        {activeTab === 'moveMoney' && <MoveMoneyHub onOpenETransfer={() => setInETransfer(true)} />}
         {activeTab === 'more' && renderEmpty('More')}
       </div>
 

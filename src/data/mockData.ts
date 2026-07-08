@@ -25,6 +25,7 @@ export interface Recipient {
   id: string;
   name: string;
   email: string;
+  mobile?: string;
   autoDeposit: boolean;
 }
 
@@ -64,10 +65,12 @@ export const recentTransactions: Transaction[] = [
 ];
 
 export const recipients: Recipient[] = [
-  { id: 'r1', name: 'Sarah Mitchell', email: 'sarah.m@email.com', autoDeposit: true },
-  { id: 'r2', name: 'James Chen', email: 'j.chen@email.com', autoDeposit: false },
-  { id: 'r3', name: 'Emily Rodriguez', email: 'emily.r@email.com', autoDeposit: true },
-  { id: 'r4', name: 'Michael Thompson', email: 'mthompson@email.com', autoDeposit: false },
+  { id: 'r1', name: 'Sarah Mitchell', email: 'sarah.mitchell@email.com', mobile: '(416) 555-0142', autoDeposit: true },
+  { id: 'r2', name: 'James Chen', email: 'j.chen@email.com', mobile: '(647) 555-0187', autoDeposit: false },
+  { id: 'r3', name: 'Emily Rodriguez', email: 'emily.r@email.com', mobile: '(905) 555-0203', autoDeposit: true },
+  { id: 'r4', name: 'Michael Thompson', email: 'mthompson@email.com', mobile: '(416) 555-0176', autoDeposit: false },
+  { id: 'r5', name: 'Ava Patel', email: 'ava.patel@email.com', mobile: '(437) 555-0198', autoDeposit: false },
+  { id: 'r6', name: "Ryan O'Brien", email: 'r.obrien@email.com', mobile: '(289) 555-0155', autoDeposit: false },
 ];
 
 export const payees: Payee[] = [
