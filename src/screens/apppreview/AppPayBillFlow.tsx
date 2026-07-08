@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Account, Payee } from '../../data/mockData';
 import { accounts, payees as seedPayees, recipients as seedRecipients, billerDirectory, formatPlain } from '../../data/mockData';
 import { ChevronLeftIcon } from '../../components/ui/RBCIcons';
 import PayBillsHub from './PayBillsHub';
+import type { PracticeTarget } from '../learnpractice/practiceSteps';
 
 type Step =
   | 'hub'
@@ -39,6 +40,10 @@ interface Props {
   initialPayee?: Payee | null;
   seniorMode?: boolean;
   startAt?: 'hub' | 'payForm' | 'managePayees';
+  practiceHighlight?: PracticeTarget | null;
+  onPracticeTargetActivated?: (target: PracticeTarget) => void;
+  onStepChange?: (step: string) => void;
+  practiceStep?: string;
 }
 
 interface FormState {
@@ -61,6 +66,10 @@ export default function AppPayBillFlow({
   initialPayee,
   seniorMode = false,
   startAt,
+  practiceHighlight = null,
+  onPracticeTargetActivated,
+  onStepChange,
+  practiceStep,
 }: Props) {
   const [step, setStep] = useState<Step>(startAt ?? (initialPayee ? 'payForm' : 'hub'));
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -87,6 +96,23 @@ export default function AppPayBillFlow({
   const [cancellingPayment, setCancellingPayment] = useState<RecentPayment | null>(null);
   const [payFormInitialTab, setPayFormInitialTab] = useState<'New' | 'Upcoming' | 'History'>('New');
 
+  useEffect(() => {
+    onStepChange?.(step);
+  }, [step, onStepChange]);
+
+  useEffect(() => {
+    if (practiceStep === 'managePayees' && step !== 'managePayees') {
+      setStep('managePayees');
+    }
+  }, [practiceStep, step]);
+
+  const practiceTap = (target: PracticeTarget, action: () => void) => {
+    if (practiceHighlight === target) {
+      onPracticeTargetActivated?.(target);
+    }
+    action();
+  };
+
   return (
     <div className={`relative h-full ${seniorMode ? 'senior-preview high-contrast' : ''}`}>
       {step === 'hub' && (
@@ -98,7 +124,7 @@ export default function AppPayBillFlow({
             setStep('payForm');
           }}
           onAddPayee={() => setStep('addPayeeSearch')}
-          onManagePayees={() => setStep('managePayees')}
+          onManagePayees={() => practiceTap('hub-manage-payees', () => setStep('managePayees'))}
           onCancelPayment={() => setStep('cancelHub')}
           onViewPastPayments={() => {
             setPayFormInitialTab('History');
@@ -109,6 +135,7 @@ export default function AppPayBillFlow({
             setStep('payForm');
           }}
           seniorMode={seniorMode}
+          practiceHighlight={practiceHighlight}
         />
       )}
 

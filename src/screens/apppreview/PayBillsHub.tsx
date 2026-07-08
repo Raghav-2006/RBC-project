@@ -4,6 +4,8 @@ import {
   ChevronLeftIcon, ChevronRightIcon,
   PayBillsIcon, PeopleIcon,
 } from '../../components/ui/RBCIcons';
+import PracticeHighlight from '../learnpractice/PracticeHighlight';
+import type { PracticeTarget } from '../learnpractice/practiceSteps';
 
 interface Props {
   onBack: () => void;
@@ -14,12 +16,14 @@ interface Props {
   onViewPastPayments: () => void;
   onViewUpcomingPayments: () => void;
   seniorMode?: boolean;
+  practiceHighlight?: PracticeTarget | null;
 }
 
 export default function PayBillsHub({
   onBack, onPayABill, onAddPayee, onManagePayees, onCancelPayment,
   onViewPastPayments, onViewUpcomingPayments,
   seniorMode = false,
+  practiceHighlight = null,
 }: Props) {
   const frequent = payees[0];
 
@@ -69,7 +73,9 @@ export default function PayBillsHub({
       <HubRow icon={<TrashIcon />} label="Cancel or Stop a Payment" onClick={onCancelPayment} />
       <HubRow icon={<PastPaymentsIcon />} label="View Past Payments" onClick={onViewPastPayments} />
       <HubRow icon={<UpcomingIcon />} label="View Upcoming Payments" onClick={onViewUpcomingPayments} />
-      <HubRow icon={<PeopleIcon size={20} stroke="#006AC3" />} label="Manage Payees" onClick={onManagePayees} />
+      <PracticeHighlight target="hub-manage-payees" activeTarget={practiceHighlight}>
+        <HubRow icon={<PeopleIcon size={20} stroke="#006AC3" />} label="Manage Payees" onClick={onManagePayees} />
+      </PracticeHighlight>
     </div>
   );
 }

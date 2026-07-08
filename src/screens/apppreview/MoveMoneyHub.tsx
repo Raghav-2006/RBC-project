@@ -2,6 +2,8 @@ import {
   ChevronRightIcon, KebabIcon, TransferIcon, PayBillsIcon, SendIcon,
   PeopleIcon, CameraIcon, SplitIcon, CrossBorderIcon, GlobeIcon,
 } from '../../components/ui/RBCIcons';
+import PracticeHighlight from '../learnpractice/PracticeHighlight';
+import type { PracticeTarget } from '../learnpractice/practiceSteps';
 
 interface MoveMoneyHubProps {
   onOpenTransfer: () => void;
@@ -9,18 +11,39 @@ interface MoveMoneyHubProps {
   onOpenPayBills: () => void;
   onOpenDeposit: () => void;
   seniorMode?: boolean;
+  practiceHighlight?: PracticeTarget | null;
+  onPracticeTap?: (target: PracticeTarget, action: () => void) => void;
 }
 
 interface Row {
   icon: React.ReactNode;
   label: React.ReactNode;
   onClick?: () => void;
+  practiceTarget?: PracticeTarget;
 }
 
-export default function MoveMoneyHub({ onOpenTransfer, onOpenETransfer, onOpenPayBills, onOpenDeposit, seniorMode = false }: MoveMoneyHubProps) {
+export default function MoveMoneyHub({
+  onOpenTransfer,
+  onOpenETransfer,
+  onOpenPayBills,
+  onOpenDeposit,
+  seniorMode = false,
+  practiceHighlight = null,
+  onPracticeTap,
+}: MoveMoneyHubProps) {
+  const tap = (target: PracticeTarget, action?: () => void) => {
+    if (action && onPracticeTap) onPracticeTap(target, action);
+    else action?.();
+  };
+
   const canadaRows: Row[] = [
     { icon: <TransferIcon size={20} stroke="#006AC3" />, label: 'Transfer Between My Accounts', onClick: onOpenTransfer },
-    { icon: <PayBillsIcon size={20} stroke="#006AC3" />, label: 'Pay a Bill', onClick: onOpenPayBills },
+    {
+      icon: <PayBillsIcon size={20} stroke="#006AC3" />,
+      label: 'Pay a Bill',
+      onClick: () => tap('hub-pay-bill', onOpenPayBills),
+      practiceTarget: 'hub-pay-bill',
+    },
     {
       icon: <SendIcon size={20} stroke="#006AC3" />,
       label: (<><em className="italic">Interac</em> e-Transfer</>),
@@ -60,7 +83,13 @@ export default function MoveMoneyHub({ onOpenTransfer, onOpenETransfer, onOpenPa
       {/* Canada section */}
       <SectionHeader title="Canada" seniorMode={seniorMode} />
       {canadaRows.map((r, i) => (
-        <HubRow key={i} icon={r.icon} label={r.label} onClick={r.onClick} seniorMode={seniorMode} />
+        r.practiceTarget ? (
+          <PracticeHighlight key={i} target={r.practiceTarget} activeTarget={practiceHighlight}>
+            <HubRow icon={r.icon} label={r.label} onClick={r.onClick} seniorMode={seniorMode} />
+          </PracticeHighlight>
+        ) : (
+          <HubRow key={i} icon={r.icon} label={r.label} onClick={r.onClick} seniorMode={seniorMode} />
+        )
       ))}
 
       {/* International section */}

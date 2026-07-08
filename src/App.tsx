@@ -9,12 +9,7 @@ import TaskChooser, { type TaskId } from './screens/TaskChooser';
 import ModeChooser from './screens/ModeChooser';
 import VersionChooser, { type AppVersion } from './screens/VersionChooser';
 import AppPreview from './screens/apppreview/AppPreview';
-import ETransferFlow from './screens/simulator/ETransferFlow';
-import CheckBalanceFlow from './screens/simulator/CheckBalanceFlow';
-import TransferFlow from './screens/simulator/TransferFlow';
-import PayBillFlow from './screens/simulator/PayBillFlow';
-import ManagePayeesFlow from './screens/simulator/ManagePayeesFlow';
-import DepositChequeFlow from './screens/simulator/DepositChequeFlow';
+import LearnPracticeFlow from './screens/learnpractice/LearnPracticeFlow';
 
 type Screen =
   | 'attract'
@@ -40,24 +35,17 @@ function AppContent() {
     setSelectedTask(null);
   }, []);
 
-  const renderSimulator = () => {
+  const renderLearnPractice = () => {
     if (!selectedTask) return null;
 
-    const props = {
-      mode: selectedMode,
-      onComplete: () => { setSelectedTask(null); setScreen('taskChooser'); },
-      onBack: goMenu,
-    };
-
-    switch (selectedTask) {
-      case 'sendETransfer': return <ETransferFlow {...props} />;
-      case 'checkBalance': return <CheckBalanceFlow {...props} />;
-      case 'transferFunds': return <TransferFlow {...props} />;
-      case 'payBill': return <PayBillFlow {...props} />;
-      case 'managePayees': return <ManagePayeesFlow {...props} />;
-      case 'depositCheque': return <DepositChequeFlow {...props} />;
-      default: return null;
-    }
+    return (
+      <LearnPracticeFlow
+        taskId={selectedTask}
+        mode={selectedMode}
+        onComplete={() => { setSelectedTask(null); setScreen('taskChooser'); }}
+        onBack={goMenu}
+      />
+    );
   };
 
   return (
@@ -101,7 +89,7 @@ function AppContent() {
                 onBack={() => setScreen('taskChooser')}
               />
             )}
-            {screen === 'simulator' && renderSimulator()}
+            {screen === 'simulator' && renderLearnPractice()}
             {screen === 'versionChooser' && (
               <VersionChooser
                 onSelectVersion={(v) => { setSelectedVersion(v); setScreen('appPreview'); }}

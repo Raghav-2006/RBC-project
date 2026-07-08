@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { AppVersion } from '../VersionChooser';
 import type { Account } from '../../data/mockData';
@@ -17,14 +17,40 @@ import AppPayBillFlow from './AppPayBillFlow';
 import AppTransferFlow from './AppTransferFlow';
 import AppDepositFlow from './AppDepositFlow';
 import AppVoidChequeFlow from './AppVoidChequeFlow';
+import PracticeHighlight from '../learnpractice/PracticeHighlight';
+import PracticeGuide from '../learnpractice/PracticeGuide';
+import type {
+  PracticeCommand,
+  PracticeLocation,
+  PracticeTarget,
+} from '../learnpractice/practiceSteps';
+
+export interface PracticeGuideState {
+  instruction: string;
+  step: number;
+  totalSteps: number;
+  showFinish?: boolean;
+  onFinish?: () => void;
+}
+
+export interface PracticeConfig {
+  mode: 'guided' | 'demo';
+  highlight: PracticeTarget | null;
+  command: PracticeCommand | null;
+  onCommandHandled: () => void;
+  onLocationChange: (location: PracticeLocation) => void;
+  onTargetActivated: (target: PracticeTarget) => void;
+  guide: PracticeGuideState;
+}
 
 interface AppDashboardProps {
   version: AppVersion;
+  practice?: PracticeConfig;
 }
 
 type Tab = 'home' | 'accounts' | 'moveMoney' | 'more';
 
-export default function AppDashboard({ version }: AppDashboardProps) {
+export default function AppDashboard({ version, practice }: AppDashboardProps) {
   useApp();
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [openAccount, setOpenAccount] = useState<Account | null>(null);
@@ -35,21 +61,129 @@ export default function AppDashboard({ version }: AppDashboardProps) {
   const [inVoidCheque, setInVoidCheque] = useState(false);
   const [transferPrefill, setTransferPrefill] = useState<{ fromId?: string; toId?: string; amount?: string } | null>(null);
   const [payBillsStartAt, setPayBillsStartAt] = useState<'hub' | 'payForm' | 'managePayees'>('hub');
+  const [payBillsStep, setPayBillsStep] = useState<string>('hub');
   const [eTransferStartAt, setETransferStartAt] = useState<'hub' | 'send'>('hub');
   const [depositStartWithActions, setDepositStartWithActions] = useState(true);
 
   const isSenior = version === 'senior';
+  const practiceHighlight = practice?.highlight ?? null;
+  const practiceGuide = practice?.guide;
+
+  const practiceTap = (target: PracticeTarget, action: () => void) => {
+    if (practice?.highlight === target) {
+      practice.onTargetActivated(target);
+    }
+    action();
+  };
+
+  const bottomNavProps = {
+    activeTab,
+    onChange: setActiveTab,
+    seniorMode: isSenior,
+    practiceHighlight,
+    onPracticeTap: practice ? practiceTap : undefined,
+  };
+
+  const renderPracticeGuide = () => (
+    practiceGuide ? (
+      <PracticeGuide
+        instruction={practiceGuide.instruction}
+        step={practiceGuide.step}
+        totalSteps={practiceGuide.totalSteps}
+        visible
+        showFinish={practiceGuide.showFinish}
+        onFinish={practiceGuide.onFinish}
+      />
+    ) : null
+  );
+
+  const reportLocation = (): PracticeLocation => {
+    if (openAccount) return 'accountDetail';
+    if (inTransfer) return 'transfer';
+    if (inPayBills) {
+      if (payBillsStep === 'managePayees') return 'managePayees';
+      if (payBillsStep === 'payForm') return 'payBillsForm';
+      return 'payBillsHub';
+    }
+    if (inETransfer) return eTransferStartAt === 'send' ? 'eTransferSend' : 'home';
+    if (inDeposit) return 'deposit';
+    if (activeTab === 'moveMoney') return 'moveMoney';
+    if (activeTab === 'accounts') return 'accounts';
+    return 'home';
+  };
+
+  useEffect(() => {
+    practice?.onLocationChange(reportLocation());
+  }, [
+    practice,
+    activeTab,
+    openAccount,
+    inTransfer,
+    inPayBills,
+    inETransfer,
+    inDeposit,
+    payBillsStartAt,
+    payBillsStep,
+    eTransferStartAt,
+  ]);
+
+  useEffect(() => {
+    if (!practice?.command) return;
+    const cmd = practice.command;
+
+    switch (cmd.type) {
+      case 'tab':
+        setActiveTab(cmd.tab);
+        break;
+      case 'openAccount': {
+        const account = accounts.find((a) => a.id === cmd.accountId) ?? null;
+        setOpenAccount(account);
+        break;
+      }
+      case 'openTransfer':
+        setTransferPrefill(null);
+        setInTransfer(true);
+        break;
+      case 'openPayBills':
+        setPayBillsStartAt(cmd.startAt);
+        setPayBillsStep(cmd.startAt === 'hub' ? 'hub' : cmd.startAt);
+        setInPayBills(true);
+        break;
+      case 'openPayBillsStep':
+        setPayBillsStep(cmd.step);
+        if (!inPayBills) {
+          setPayBillsStartAt('hub');
+          setInPayBills(true);
+        }
+        break;
+      case 'openETransfer':
+        setETransferStartAt(cmd.startAt);
+        setInETransfer(true);
+        break;
+      case 'openDeposit':
+        setDepositStartWithActions(false);
+        setInDeposit(true);
+        break;
+      default:
+        break;
+    }
+
+    practice.onCommandHandled();
+  }, [practice?.command, inPayBills]);
 
   // e-Transfer flow overlay (no bottom nav during flow)
   if (inETransfer) {
     return (
-      <div className="h-full bg-white overflow-auto">
-        <AppETransferFlow
-          onExitToDashboard={() => { setInETransfer(false); setETransferStartAt('hub'); setActiveTab('home'); }}
-          onExitToMoveMoney={() => { setInETransfer(false); setETransferStartAt('hub'); }}
-          seniorMode={isSenior}
-          startAt={eTransferStartAt}
-        />
+      <div className="h-full flex flex-col bg-white">
+        <div className="flex-1 overflow-auto min-h-0">
+          <AppETransferFlow
+            onExitToDashboard={() => { setInETransfer(false); setETransferStartAt('hub'); setActiveTab('home'); }}
+            onExitToMoveMoney={() => { setInETransfer(false); setETransferStartAt('hub'); }}
+            seniorMode={isSenior}
+            startAt={eTransferStartAt}
+          />
+        </div>
+        {renderPracticeGuide()}
       </div>
     );
   }
@@ -57,61 +191,77 @@ export default function AppDashboard({ version }: AppDashboardProps) {
   // Pay Bills flow overlay
   if (inPayBills) {
     return (
-      <div className="h-full bg-white overflow-auto">
-        <AppPayBillFlow
-          onExitToDashboard={() => { setInPayBills(false); setPayBillsStartAt('hub'); setActiveTab('home'); }}
-          onExitToMoveMoney={() => { setInPayBills(false); setPayBillsStartAt('hub'); }}
-          seniorMode={isSenior}
-          startAt={payBillsStartAt}
-        />
+      <div className="h-full flex flex-col bg-white">
+        <div className="flex-1 overflow-auto min-h-0">
+          <AppPayBillFlow
+            onExitToDashboard={() => { setInPayBills(false); setPayBillsStartAt('hub'); setPayBillsStep('hub'); setActiveTab('home'); }}
+            onExitToMoveMoney={() => { setInPayBills(false); setPayBillsStartAt('hub'); setPayBillsStep('hub'); }}
+            seniorMode={isSenior}
+            startAt={payBillsStartAt}
+            practiceHighlight={practiceHighlight}
+            onPracticeTargetActivated={practice?.onTargetActivated}
+            onStepChange={setPayBillsStep}
+            practiceStep={payBillsStep}
+          />
+        </div>
+        {renderPracticeGuide()}
       </div>
     );
   }
 
   if (inTransfer) {
     return (
-      <div className="h-full bg-white overflow-auto">
-        <AppTransferFlow
-          onBack={() => {
-            setInTransfer(false);
-            setTransferPrefill(null);
-          }}
-          onHome={() => {
-            setInTransfer(false);
-            setTransferPrefill(null);
-            setOpenAccount(null);
-            setActiveTab('home');
-          }}
-          initialFromId={transferPrefill?.fromId}
-          initialToId={transferPrefill?.toId}
-          initialAmount={transferPrefill?.amount}
-          seniorMode={isSenior}
-        />
+      <div className="h-full flex flex-col bg-white">
+        <div className="flex-1 overflow-auto min-h-0">
+          <AppTransferFlow
+            onBack={() => {
+              setInTransfer(false);
+              setTransferPrefill(null);
+            }}
+            onHome={() => {
+              setInTransfer(false);
+              setTransferPrefill(null);
+              setOpenAccount(null);
+              setActiveTab('home');
+            }}
+            initialFromId={transferPrefill?.fromId}
+            initialToId={transferPrefill?.toId}
+            initialAmount={transferPrefill?.amount}
+            seniorMode={isSenior}
+          />
+        </div>
+        {renderPracticeGuide()}
       </div>
     );
   }
 
   if (inDeposit) {
     return (
-      <div className="h-full bg-white overflow-auto">
-        <AppDepositFlow
-          onBack={() => { setInDeposit(false); setDepositStartWithActions(true); }}
-          onOpenVoidCheque={() => {
-            setInDeposit(false);
-            setDepositStartWithActions(true);
-            setInVoidCheque(true);
-          }}
-          seniorMode={isSenior}
-          startWithActions={depositStartWithActions}
-        />
+      <div className="h-full flex flex-col bg-white">
+        <div className="flex-1 overflow-auto min-h-0">
+          <AppDepositFlow
+            onBack={() => { setInDeposit(false); setDepositStartWithActions(true); }}
+            onOpenVoidCheque={() => {
+              setInDeposit(false);
+              setDepositStartWithActions(true);
+              setInVoidCheque(true);
+            }}
+            seniorMode={isSenior}
+            startWithActions={depositStartWithActions}
+          />
+        </div>
+        {renderPracticeGuide()}
       </div>
     );
   }
 
   if (inVoidCheque) {
     return (
-      <div className="h-full bg-white overflow-auto">
-        <AppVoidChequeFlow onBack={() => setInVoidCheque(false)} seniorMode={isSenior} />
+      <div className="h-full flex flex-col bg-white">
+        <div className="flex-1 overflow-auto min-h-0">
+          <AppVoidChequeFlow onBack={() => setInVoidCheque(false)} seniorMode={isSenior} />
+        </div>
+        {renderPracticeGuide()}
       </div>
     );
   }
@@ -120,7 +270,7 @@ export default function AppDashboard({ version }: AppDashboardProps) {
   if (openAccount) {
     return (
       <div className="h-full flex flex-col bg-white">
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto min-h-0">
           <AccountDetail
             account={openAccount}
             onBack={() => setOpenAccount(null)}
@@ -132,7 +282,14 @@ export default function AppDashboard({ version }: AppDashboardProps) {
             seniorMode={isSenior}
           />
         </div>
-        <BottomNav activeTab={activeTab} onChange={(t) => { setOpenAccount(null); setActiveTab(t); }} seniorMode={isSenior} />
+        {renderPracticeGuide()}
+        <BottomNav
+          activeTab={activeTab}
+          onChange={(t) => { setOpenAccount(null); setActiveTab(t); }}
+          seniorMode={isSenior}
+          practiceHighlight={practiceHighlight}
+          onPracticeTap={practice ? practiceTap : undefined}
+        />
       </div>
     );
   }
@@ -270,8 +427,17 @@ export default function AppDashboard({ version }: AppDashboardProps) {
         <div className="overflow-x-auto no-scrollbar">
           <div className={`flex ${isSenior ? 'gap-4 px-5 pb-2' : 'gap-3 px-4 pb-1'}`} style={{ width: 'max-content' }}>
             {[
-              { icon: <SendIcon size={26} stroke="#006AC3" />, label: 'Send', onClick: () => setInETransfer(true) },
               {
+                target: 'qa-send' as const,
+                icon: <SendIcon size={26} stroke="#006AC3" />,
+                label: 'Send',
+                onClick: () => {
+                  setETransferStartAt(practice ? 'send' : 'hub');
+                  setInETransfer(true);
+                },
+              },
+              {
+                target: 'qa-transfer' as const,
                 icon: <TransferIcon size={26} stroke="#006AC3" />,
                 label: 'Transfer',
                 onClick: () => {
@@ -279,20 +445,38 @@ export default function AppDashboard({ version }: AppDashboardProps) {
                   setInTransfer(true);
                 },
               },
-              { icon: <PayBillsIcon size={26} stroke="#006AC3" />, label: 'Pay bills', onClick: () => setInPayBills(true) },
-              { icon: <SendIcon size={26} stroke="#006AC3" />, label: 'Deposit', onClick: () => setInDeposit(true) },
-            ].map(qa => (
-              <button
-                key={qa.label}
-                onClick={qa.onClick}
-                className={`bg-white border rounded-md flex flex-col items-center justify-center active:bg-rbc-bright-lightest cursor-pointer shadow-sm ${
-                  isSenior ? 'gap-2.5 border-[#B9C6D2]' : 'gap-1.5 border-gray-200'
-                }`}
-                style={{ width: isSenior ? '40%' : '32%', minWidth: isSenior ? 152 : 120, height: isSenior ? 122 : 100 }}
-              >
-                {qa.icon}
-                <span className={`${isSenior ? 'text-[18px]' : 'text-[14px]'} font-medium text-rbc-dark`}>{qa.label}</span>
-              </button>
+              {
+                target: 'qa-pay-bills' as const,
+                icon: <PayBillsIcon size={26} stroke="#006AC3" />,
+                label: 'Pay bills',
+                onClick: () => {
+                  setPayBillsStartAt(practice ? 'payForm' : 'hub');
+                  setPayBillsStep(practice ? 'payForm' : 'hub');
+                  setInPayBills(true);
+                },
+              },
+              {
+                target: 'qa-deposit' as const,
+                icon: <SendIcon size={26} stroke="#006AC3" />,
+                label: 'Deposit',
+                onClick: () => {
+                  setDepositStartWithActions(!practice);
+                  setInDeposit(true);
+                },
+              },
+            ].map((qa) => (
+              <PracticeHighlight key={qa.label} target={qa.target} activeTarget={practiceHighlight}>
+                <button
+                  onClick={() => practiceTap(qa.target, qa.onClick)}
+                  className={`bg-white border rounded-md flex flex-col items-center justify-center active:bg-rbc-bright-lightest cursor-pointer shadow-sm ${
+                    isSenior ? 'gap-2.5 border-[#B9C6D2]' : 'gap-1.5 border-gray-200'
+                  }`}
+                  style={{ width: isSenior ? '40%' : '32%', minWidth: isSenior ? 152 : 120, height: isSenior ? 122 : 100 }}
+                >
+                  {qa.icon}
+                  <span className={`${isSenior ? 'text-[18px]' : 'text-[14px]'} font-medium text-rbc-dark`}>{qa.label}</span>
+                </button>
+              </PracticeHighlight>
             ))}
           </div>
         </div>
@@ -305,22 +489,31 @@ export default function AppDashboard({ version }: AppDashboardProps) {
           <KebabIcon size={18} stroke="#6B7280" />
         </div>
         <div className="px-5">
-          {[...banking, ...credit].map((a, i, arr) => (
-            <button
-              key={a.id}
-              onClick={() => setOpenAccount(a)}
-              className={`w-full flex items-center justify-between cursor-pointer text-left border-b ${isSenior ? 'py-5' : 'py-4'}`}
-              style={{ borderColor: i === arr.length - 1 ? 'transparent' : '#E5E7EA' }}
-            >
-              <span className={`${isSenior ? 'text-[21px]' : 'text-[16px]'} text-rbc-dark`}>
-                {a.name} ({a.accountNumber})
-              </span>
-              <div className="flex items-center gap-2">
-                <span className={`${isSenior ? 'text-[21px]' : 'text-[16px]'} text-rbc-dark`}>{formatPlain(a.balance)}</span>
-                <ChevronRightIcon size={14} stroke="#9CA3AF" />
-              </div>
-            </button>
-          ))}
+          {[...banking, ...credit].map((a, i, arr) => {
+            const row = (
+              <button
+                onClick={() => (a.id === 'chq1' ? practiceTap('home-account', () => setOpenAccount(a)) : setOpenAccount(a))}
+                className={`w-full flex items-center justify-between cursor-pointer text-left border-b ${isSenior ? 'py-5' : 'py-4'}`}
+                style={{ borderColor: i === arr.length - 1 ? 'transparent' : '#E5E7EA' }}
+              >
+                <span className={`${isSenior ? 'text-[21px]' : 'text-[16px]'} text-rbc-dark`}>
+                  {a.name} ({a.accountNumber})
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`${isSenior ? 'text-[21px]' : 'text-[16px]'} text-rbc-dark`}>{formatPlain(a.balance)}</span>
+                  <ChevronRightIcon size={14} stroke="#9CA3AF" />
+                </div>
+              </button>
+            );
+
+            if (a.id !== 'chq1') return <div key={a.id}>{row}</div>;
+
+            return (
+              <PracticeHighlight key={a.id} target="home-account" activeTarget={practiceHighlight}>
+                {row}
+              </PracticeHighlight>
+            );
+          })}
         </div>
         <div className="px-5 pb-4 pt-1 flex items-center justify-end gap-4">
           <button className={`${isSenior ? 'text-[17px]' : 'text-[14px]'} text-rbc-bright font-medium cursor-pointer`}>Open an account</button>
@@ -355,7 +548,7 @@ export default function AppDashboard({ version }: AppDashboardProps) {
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto min-h-0">
         {activeTab === 'home' && (isSenior ? renderSeniorHome() : renderHome())}
         {activeTab === 'accounts' && <AccountSummary onSelectAccount={setOpenAccount} seniorMode={isSenior} />}
         {activeTab === 'moveMoney' && (
@@ -365,23 +558,47 @@ export default function AppDashboard({ version }: AppDashboardProps) {
               setInTransfer(true);
             }}
             onOpenETransfer={() => setInETransfer(true)}
-            onOpenPayBills={() => setInPayBills(true)}
+            onOpenPayBills={() => {
+              setPayBillsStartAt('hub');
+              setPayBillsStep('hub');
+              setInPayBills(true);
+            }}
             onOpenDeposit={() => setInDeposit(true)}
             seniorMode={isSenior}
+            practiceHighlight={practiceHighlight}
+            onPracticeTap={practice ? practiceTap : undefined}
           />
         )}
         {activeTab === 'more' && renderEmpty('More')}
       </div>
 
+      {renderPracticeGuide()}
+
       {/* Bottom navigation — distinctive RBC layout with gold FAB */}
-      <BottomNav activeTab={activeTab} onChange={setActiveTab} seniorMode={isSenior} />
+      <BottomNav {...bottomNavProps} />
     </div>
   );
 }
 
-function BottomNav({ activeTab, onChange, seniorMode = false }: { activeTab: Tab; onChange: (t: Tab) => void; seniorMode?: boolean }) {
+function BottomNav({
+  activeTab,
+  onChange,
+  seniorMode = false,
+  practiceHighlight = null,
+  onPracticeTap,
+}: {
+  activeTab: Tab;
+  onChange: (t: Tab) => void;
+  seniorMode?: boolean;
+  practiceHighlight?: PracticeTarget | null;
+  onPracticeTap?: (target: PracticeTarget, action: () => void) => void;
+}) {
   const inactiveColor = '#6B7280';
   const activeColor = '#006AC3';
+  const tap = (target: PracticeTarget, action: () => void) => {
+    if (onPracticeTap) onPracticeTap(target, action);
+    else action();
+  };
 
   return (
     <div className="relative bg-white border-t border-gray-200">
@@ -402,13 +619,15 @@ function BottomNav({ activeTab, onChange, seniorMode = false }: { activeTab: Tab
         />
         {/* Spacer for FAB */}
         <div className="w-14" />
-        <NavItem
-          label="Move Money"
-          active={activeTab === 'moveMoney'}
-          onClick={() => onChange('moveMoney')}
-          icon={<MoveMoneyIcon size={seniorMode ? 26 : 22} stroke={activeTab === 'moveMoney' ? activeColor : inactiveColor} filled={activeTab === 'moveMoney'} />}
-          seniorMode={seniorMode}
-        />
+        <PracticeHighlight target="nav-move-money" activeTarget={practiceHighlight}>
+          <NavItem
+            label="Move Money"
+            active={activeTab === 'moveMoney'}
+            onClick={() => tap('nav-move-money', () => onChange('moveMoney'))}
+            icon={<MoveMoneyIcon size={seniorMode ? 26 : 22} stroke={activeTab === 'moveMoney' ? activeColor : inactiveColor} filled={activeTab === 'moveMoney'} />}
+            seniorMode={seniorMode}
+          />
+        </PracticeHighlight>
         <NavItem
           label="More"
           active={activeTab === 'more'}
