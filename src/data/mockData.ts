@@ -74,11 +74,39 @@ export const recipients: Recipient[] = [
 ];
 
 export const payees: Payee[] = [
-  { id: 'p1', name: 'Bell Canada', accountNumber: '****4567', dueDate: '2025-06-25', amountDue: 89.99 },
-  { id: 'p2', name: 'Toronto Hydro', accountNumber: '****8901', dueDate: '2025-06-28', amountDue: 134.50 },
-  { id: 'p3', name: 'Rogers Communications', accountNumber: '****2345', dueDate: '2025-07-01', amountDue: 75.00 },
-  { id: 'p4', name: 'City of Toronto - Property Tax', accountNumber: '****6789', dueDate: '2025-07-15', amountDue: 2150.00 },
-  { id: 'p5', name: 'Enbridge Gas', accountNumber: '****0123', dueDate: '2025-06-30', amountDue: 67.25 },
+  { id: 'p1', name: 'Bell Canada', accountNumber: '3401 **** **** 022', dueDate: '2026-07-14', amountDue: 89.99 },
+  { id: 'p2', name: 'Toronto Hydro', accountNumber: '7823 **** **** 194', dueDate: '2026-07-18', amountDue: 134.50 },
+  { id: 'p3', name: 'Rogers Communications', accountNumber: '5241 **** **** 068', dueDate: '2026-07-22', amountDue: 75.00 },
+  { id: 'p4', name: 'Enbridge Gas', accountNumber: '9037 **** **** 512', dueDate: '2026-07-25', amountDue: 67.25 },
+];
+
+// Directory of billers for the "Add a Payee" search
+export const billerDirectory: string[] = [
+  'BELL CANADA',
+  'BELL MOBILITY',
+  'ROGERS COMMUNICATIONS',
+  'ROGERS MOBILITY',
+  'TELUS COMMUNICATIONS INC',
+  'TELUS MOBILITY',
+  'SHAW COMMUNICATIONS',
+  'FIDO SOLUTIONS',
+  'FREEDOM MOBILE',
+  'FORTIS ALBERTA INC',
+  'FORTISBC - NATURAL GAS',
+  'FORTISBC ELECTRICITY',
+  'HYDRO ONE',
+  'TORONTO HYDRO',
+  'ENBRIDGE GAS',
+  'DIRECT ENERGY',
+  'CITY OF TORONTO - PROPERTY TAX',
+  'CITY OF VANCOUVER - PROPERTY TAX',
+  'CANADA REVENUE AGENCY - PERSONAL',
+  'CANADA REVENUE AGENCY - BUSINESS',
+  'AMERICAN EXPRESS CARDS',
+  'MBNA MASTERCARD',
+  'CAPITAL ONE MASTERCARD',
+  'TD VISA',
+  'CIBC VISA',
 ];
 
 export function formatCurrency(amount: number): string {

@@ -5,6 +5,7 @@ import {
 
 interface MoveMoneyHubProps {
   onOpenETransfer: () => void;
+  onOpenPayBills: () => void;
 }
 
 interface Row {
@@ -13,10 +14,10 @@ interface Row {
   onClick?: () => void;
 }
 
-export default function MoveMoneyHub({ onOpenETransfer }: MoveMoneyHubProps) {
+export default function MoveMoneyHub({ onOpenETransfer, onOpenPayBills }: MoveMoneyHubProps) {
   const canadaRows: Row[] = [
     { icon: <TransferIcon size={20} stroke="#006AC3" />, label: 'Transfer Between My Accounts' },
-    { icon: <PayBillsIcon size={20} stroke="#006AC3" />, label: 'Pay a Bill' },
+    { icon: <PayBillsIcon size={20} stroke="#006AC3" />, label: 'Pay a Bill', onClick: onOpenPayBills },
     {
       icon: <SendIcon size={20} stroke="#006AC3" />,
       label: (<><em className="italic">Interac</em> e-Transfer</>),

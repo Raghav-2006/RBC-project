@@ -13,6 +13,7 @@ import AccountDetail from './AccountDetail';
 import AccountSummary from './AccountSummary';
 import MoveMoneyHub from './MoveMoneyHub';
 import AppETransferFlow from './AppETransferFlow';
+import AppPayBillFlow from './AppPayBillFlow';
 
 interface AppDashboardProps {
   version: AppVersion;
@@ -25,6 +26,7 @@ export default function AppDashboard({ version }: AppDashboardProps) {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [openAccount, setOpenAccount] = useState<Account | null>(null);
   const [inETransfer, setInETransfer] = useState(false);
+  const [inPayBills, setInPayBills] = useState(false);
 
   const isSenior = version === 'senior';
   const isStudent = version === 'student';
@@ -36,6 +38,18 @@ export default function AppDashboard({ version }: AppDashboardProps) {
         <AppETransferFlow
           onExitToDashboard={() => { setInETransfer(false); setActiveTab('home'); }}
           onExitToMoveMoney={() => setInETransfer(false)}
+        />
+      </div>
+    );
+  }
+
+  // Pay Bills flow overlay
+  if (inPayBills) {
+    return (
+      <div className="h-full bg-white overflow-auto">
+        <AppPayBillFlow
+          onExitToDashboard={() => { setInPayBills(false); setActiveTab('home'); }}
+          onExitToMoveMoney={() => setInPayBills(false)}
         />
       </div>
     );
@@ -114,7 +128,7 @@ export default function AppDashboard({ version }: AppDashboardProps) {
             {[
               { icon: <SendIcon size={26} stroke="#006AC3" />, label: 'Send', onClick: () => setInETransfer(true) },
               { icon: <TransferIcon size={26} stroke="#006AC3" />, label: 'Transfer' },
-              { icon: <PayBillsIcon size={26} stroke="#006AC3" />, label: 'Pay bills' },
+              { icon: <PayBillsIcon size={26} stroke="#006AC3" />, label: 'Pay bills', onClick: () => setInPayBills(true) },
               { icon: <SendIcon size={26} stroke="#006AC3" />, label: 'Deposit' },
             ].map(qa => (
               <button
@@ -191,7 +205,12 @@ export default function AppDashboard({ version }: AppDashboardProps) {
       <div className="flex-1 overflow-auto">
         {activeTab === 'home' && renderHome()}
         {activeTab === 'accounts' && <AccountSummary onSelectAccount={setOpenAccount} />}
-        {activeTab === 'moveMoney' && <MoveMoneyHub onOpenETransfer={() => setInETransfer(true)} />}
+        {activeTab === 'moveMoney' && (
+          <MoveMoneyHub
+            onOpenETransfer={() => setInETransfer(true)}
+            onOpenPayBills={() => setInPayBills(true)}
+          />
+        )}
         {activeTab === 'more' && renderEmpty('More')}
       </div>
 
