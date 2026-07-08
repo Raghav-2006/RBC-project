@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Account, Payee } from '../../data/mockData';
-import { accounts, payees as seedPayees, billerDirectory, formatPlain } from '../../data/mockData';
+import { accounts, payees as seedPayees, recipients as seedRecipients, billerDirectory, formatPlain } from '../../data/mockData';
 import { ChevronLeftIcon } from '../../components/ui/RBCIcons';
 import PayBillsHub from './PayBillsHub';
 
@@ -14,7 +14,21 @@ type Step =
   | 'addPayeeForm'
   | 'addPayeeConfirm'
   | 'payeeAdded'
-  | 'managePayees';
+  | 'managePayees'
+  | 'editPayee'
+  | 'cancelHub'
+  | 'cancelList'
+  | 'cancelConfirm'
+  | 'cancelDone';
+
+interface RecentPayment {
+  id: string;
+  payee: string;
+  accountNumber: string;
+  amount: number;
+  date: string; // ISO
+  fromAccountId: string;
+}
 
 type Sheet = 'account' | 'payee' | 'frequency' | null;
 
@@ -51,9 +65,18 @@ export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, i
     frequency: 'Once',
   });
   const [newPayeeDraft, setNewPayeeDraft] = useState<{ name: string; nickname: string; accountNumber: string } | null>(null);
+  const [editingPayee, setEditingPayee] = useState<Payee | null>(null);
   const [confirmationNumber] = useState(() =>
     Math.floor(1000 + Math.random() * 9000).toString()
   );
+  const [cancelConfirmationNumber] = useState(() =>
+    Math.floor(1000 + Math.random() * 9000).toString().padStart(5, '0')
+  );
+  const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([
+    { id: 'rp1', payee: 'Bell Canada', accountNumber: '3401 **** **** 022', amount: 89.99, date: todayISO(), fromAccountId: 'chq1' },
+    { id: 'rp2', payee: 'Toronto Hydro', accountNumber: '7823 **** **** 194', amount: 134.50, date: todayISO(), fromAccountId: 'chq1' },
+  ]);
+  const [cancellingPayment, setCancellingPayment] = useState<RecentPayment | null>(null);
 
   return (
     <div className="relative h-full">
@@ -66,6 +89,7 @@ export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, i
           }}
           onAddPayee={() => setStep('addPayeeSearch')}
           onManagePayees={() => setStep('managePayees')}
+          onCancelPayment={() => setStep('cancelHub')}
         />
       )}
 
@@ -76,6 +100,7 @@ export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, i
           onOpenSheet={setSheet}
           onChange={(patch) => setForm(f => ({ ...f, ...patch }))}
           onContinue={() => setStep('review')}
+          recentPayments={recentPayments}
         />
       )}
 
@@ -84,7 +109,22 @@ export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, i
           form={form}
           onBack={() => setStep('payForm')}
           onEdit={() => setStep('payForm')}
-          onPay={() => setStep('sent')}
+          onPay={() => {
+            if (form.from && form.to) {
+              setRecentPayments(rp => [
+                {
+                  id: 'rp' + Date.now(),
+                  payee: form.to!.name,
+                  accountNumber: form.to!.accountNumber,
+                  amount: parseFloat(form.amount || '0'),
+                  date: todayISO(),
+                  fromAccountId: form.from!.id,
+                },
+                ...rp,
+              ]);
+            }
+            setStep('sent');
+          }}
         />
       )}
 
@@ -154,7 +194,62 @@ export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, i
       )}
 
       {step === 'managePayees' && (
-        <ManagePayees payees={payees} onBack={() => setStep('hub')} />
+        <ManagePayees
+          payees={payees}
+          onBack={() => setStep('hub')}
+          onEditPayee={(p) => { setEditingPayee(p); setStep('editPayee'); }}
+        />
+      )}
+
+      {step === 'editPayee' && editingPayee && (
+        <EditPayee
+          payee={editingPayee}
+          onBack={() => setStep('managePayees')}
+          onSave={(updated) => {
+            setPayees(ps => ps.map(p => p.id === updated.id ? updated : p));
+            setStep('managePayees');
+          }}
+          onDelete={() => {
+            setPayees(ps => ps.filter(p => p.id !== editingPayee.id));
+            setStep('managePayees');
+          }}
+        />
+      )}
+
+      {step === 'cancelHub' && (
+        <CancelHub
+          onBack={() => setStep('hub')}
+          onCancelBillPayment={() => setStep('cancelList')}
+        />
+      )}
+
+      {step === 'cancelList' && (
+        <CancelList
+          payments={recentPayments}
+          onBack={() => setStep('cancelHub')}
+          onSelect={(pay) => { setCancellingPayment(pay); setStep('cancelConfirm'); }}
+        />
+      )}
+
+      {step === 'cancelConfirm' && cancellingPayment && (
+        <CancelConfirm
+          payment={cancellingPayment}
+          returnAccount={accounts.find(a => a.id === cancellingPayment.fromAccountId) ?? accounts[0]}
+          onBack={() => setStep('cancelList')}
+          onCancelPayment={() => setStep('cancelDone')}
+        />
+      )}
+
+      {step === 'cancelDone' && cancellingPayment && (
+        <CancelDone
+          payment={cancellingPayment}
+          returnAccount={accounts.find(a => a.id === cancellingPayment.fromAccountId) ?? accounts[0]}
+          confirmationNumber={cancelConfirmationNumber}
+          onViewAccount={() => {
+            setRecentPayments(rp => rp.filter(p => p.id !== cancellingPayment.id));
+            onExitToDashboard();
+          }}
+        />
       )}
 
       {/* Bottom sheets */}
@@ -211,15 +306,17 @@ export default function AppPayBillFlow({ onExitToDashboard, onExitToMoveMoney, i
 
 // ── Pay form ─────────────────────────────────────────────────────────────
 function PayForm({
-  form, onBack, onOpenSheet, onChange, onContinue,
+  form, onBack, onOpenSheet, onChange, onContinue, recentPayments,
 }: {
   form: FormState;
   onBack: () => void;
   onOpenSheet: (s: Sheet) => void;
   onChange: (patch: Partial<FormState>) => void;
   onContinue: () => void;
+  recentPayments: RecentPayment[];
 }) {
   const canContinue = form.from && parseFloat(form.amount || '0') > 0 && form.to;
+  const [tab, setTab] = useState<'New' | 'Upcoming' | 'History'>('New');
 
   return (
     <div className="flex flex-col bg-white min-h-full pb-24">
@@ -227,11 +324,12 @@ function PayForm({
 
       {/* Sub-tabs */}
       <div className="grid grid-cols-3 border-b border-[#E5E7EA]">
-        {(['New', 'Upcoming', 'History'] as const).map((t, i) => {
-          const active = i === 0;
+        {(['New', 'Upcoming', 'History'] as const).map(t => {
+          const active = t === tab;
           return (
             <button
               key={t}
+              onClick={() => setTab(t)}
               className="py-3.5 relative cursor-pointer"
               style={{ background: active ? 'white' : '#F2F4F5' }}
             >
@@ -242,6 +340,57 @@ function PayForm({
         })}
       </div>
 
+      {tab === 'Upcoming' && (
+        <div className="px-5 py-10 text-center">
+          <div className="flex justify-center mb-3">
+            <svg width="52" height="52" viewBox="0 0 52 52" fill="none" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="8" y="12" width="36" height="30" rx="2" />
+              <line x1="8" y1="20" x2="44" y2="20" />
+              <line x1="16" y1="8" x2="16" y2="14" />
+              <line x1="36" y1="8" x2="36" y2="14" />
+              <circle cx="18" cy="28" r="1.5" fill="#6B7280" />
+              <circle cx="26" cy="28" r="1.5" fill="#6B7280" />
+              <circle cx="34" cy="28" r="1.5" fill="#6B7280" />
+            </svg>
+          </div>
+          <p className="text-[13.5px] text-rbc-dark leading-snug">
+            You have no scheduled payments in the next 30 days.
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <HelpDot />
+            <span className="text-[13px] text-rbc-bright font-medium">Important Information</span>
+          </div>
+        </div>
+      )}
+
+      {tab === 'History' && (
+        <HistoryTab payments={recentPayments} />
+      )}
+
+      {tab === 'New' && (
+        <NewPayContent
+          form={form}
+          onOpenSheet={onOpenSheet}
+          onChange={onChange}
+          onContinue={onContinue}
+          canContinue={!!canContinue}
+        />
+      )}
+    </div>
+  );
+}
+
+function NewPayContent({
+  form, onOpenSheet, onChange, onContinue, canContinue,
+}: {
+  form: FormState;
+  onOpenSheet: (s: Sheet) => void;
+  onChange: (patch: Partial<FormState>) => void;
+  onContinue: () => void;
+  canContinue: boolean;
+}) {
+  return (
+    <>
       {/* Pay with */}
       <div className="px-5 pt-4 pb-2">
         <p className="text-[12px] text-rbc-secondary mb-1">Pay with:</p>
@@ -294,6 +443,51 @@ function PayForm({
           Continue
         </button>
       </div>
+    </>
+  );
+}
+
+// ── History tab ──────────────────────────────────────────────────────────
+function HistoryTab({ payments }: { payments: RecentPayment[] }) {
+  const groups: Record<string, RecentPayment[]> = {};
+  for (const p of payments) (groups[p.date] ??= []).push(p);
+  const dates = Object.keys(groups).sort().reverse();
+
+  return (
+    <div>
+      <div className="px-5 py-3 border-b border-[#E5E7EA] flex items-center gap-2 cursor-pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#006AC3" strokeWidth="1.8" strokeLinecap="round">
+          <line x1="4" y1="7" x2="14" y2="7" />
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="4" y1="17" x2="10" y2="17" />
+        </svg>
+        <span className="text-[14px] text-rbc-bright font-medium">Sort By</span>
+      </div>
+      {payments.length === 0 ? (
+        <div className="px-5 py-10 text-center">
+          <p className="text-[13.5px] text-rbc-secondary">No past payments to show yet.</p>
+        </div>
+      ) : (
+        dates.map(date => (
+          <div key={date}>
+            <div className="bg-[#F2F4F5] px-5 py-2 border-b border-[#E5E7EA]">
+              <span className="text-[13px] text-rbc-secondary">{formatDate(date)}</span>
+            </div>
+            {groups[date].map(p => (
+              <button
+                key={p.id}
+                className="w-full flex items-center justify-between px-5 py-4 border-b border-[#E5E7EA] text-left cursor-pointer active:bg-[#F2F4F5]"
+              >
+                <span className="text-[14.5px] text-rbc-dark uppercase tracking-wide">{p.payee}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[15px] text-rbc-dark">{formatPlain(p.amount)}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
+                </div>
+              </button>
+            ))}
+          </div>
+        ))
+      )}
     </div>
   );
 }
@@ -646,18 +840,22 @@ function PayeeAdded({
   );
 }
 
-// ── Manage Payees (list) ─────────────────────────────────────────────────
-function ManagePayees({ payees, onBack }: { payees: Payee[]; onBack: () => void }) {
+// ── Manage Payees (list with 3 tabs) ─────────────────────────────────────
+function ManagePayees({ payees, onBack, onEditPayee }: { payees: Payee[]; onBack: () => void; onEditPayee: (p: Payee) => void }) {
+  type Tab = 'Payees' | 'RBC Clients' | 'Recipients';
+  const [tab, setTab] = useState<Tab>('Payees');
+
   return (
     <div className="flex flex-col bg-white min-h-full pb-24">
       <BlueHeader title="Manage" onBack={onBack} />
 
       <div className="grid grid-cols-3 border-b border-[#E5E7EA]">
-        {(['Payees', 'RBC Clients', 'Recipients'] as const).map((t, i) => {
-          const active = i === 0;
+        {(['Payees', 'RBC Clients', 'Recipients'] as const).map(t => {
+          const active = t === tab;
           return (
             <button
               key={t}
+              onClick={() => setTab(t)}
               className="py-3.5 relative cursor-pointer"
               style={{ background: active ? 'white' : '#F2F4F5' }}
             >
@@ -668,9 +866,10 @@ function ManagePayees({ payees, onBack }: { payees: Payee[]; onBack: () => void 
         })}
       </div>
 
-      {payees.map(p => (
+      {tab === 'Payees' && payees.map(p => (
         <button
           key={p.id}
+          onClick={() => onEditPayee(p)}
           className="w-full flex items-center justify-between px-5 py-4 border-b border-[#E5E7EA] text-left cursor-pointer active:bg-[#F2F4F5]"
         >
           <div>
@@ -680,6 +879,348 @@ function ManagePayees({ payees, onBack }: { payees: Payee[]; onBack: () => void 
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#006AC3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
         </button>
       ))}
+
+      {tab === 'RBC Clients' && (
+        <div className="px-5 py-10 text-center bg-white">
+          <div className="flex justify-center mb-3">
+            <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+              <path d="M15 12h20l10 10v26H15z" stroke="#6B7280" strokeWidth="1.5" strokeLinejoin="round" fill="white" />
+              <path d="M35 12v10h10" stroke="#6B7280" strokeWidth="1.5" strokeLinejoin="round" />
+              <path d="M20 34c4 3 12 3 20 0" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
+          <p className="text-[13.5px] text-rbc-dark leading-snug max-w-[280px] mx-auto">
+            You currently don't have any RBC Clients saved in your list. Let's add your first one.
+          </p>
+        </div>
+      )}
+
+      {tab === 'Recipients' && seedRecipients.map(r => (
+        <button
+          key={r.id}
+          className="w-full flex items-center justify-between px-5 py-4 border-b border-[#E5E7EA] text-left cursor-pointer active:bg-[#F2F4F5]"
+        >
+          <span className="text-[16px] text-rbc-dark">{r.name}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#006AC3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Edit Payee ───────────────────────────────────────────────────────────
+function EditPayee({
+  payee, onBack, onSave, onDelete,
+}: {
+  payee: Payee;
+  onBack: () => void;
+  onSave: (p: Payee) => void;
+  onDelete: () => void;
+}) {
+  const [nickname, setNickname] = useState('');
+  const [accountNumber, setAccountNumber] = useState(payee.accountNumber);
+
+  return (
+    <div className="flex flex-col bg-[#F2F4F5] min-h-full pb-24">
+      <BlueHeader title="Edit" onBack={onBack} />
+
+      <div className="bg-white">
+        <div className="px-5 py-3 flex items-center justify-between border-b border-[#E5E7EA]">
+          <div>
+            <p className="text-[12px] text-rbc-secondary mb-0.5">Name</p>
+            <p className="text-[15px] text-rbc-bright font-semibold">{payee.name}</p>
+          </div>
+          <HelpDot />
+        </div>
+        <TextField
+          label="Nickname"
+          value={nickname}
+          onChange={setNickname}
+          placeholder="Enter a Nickname (Optional)"
+        />
+        <TextField
+          label="Account Number"
+          value={accountNumber}
+          onChange={setAccountNumber}
+          placeholder="Enter your Account Number"
+        />
+      </div>
+
+      <div className="px-4 pt-6 space-y-3">
+        <button
+          onClick={() => onSave({ ...payee, accountNumber })}
+          className="w-full py-4 rounded bg-rbc-blue text-white font-medium text-[16px] cursor-pointer"
+        >
+          Save
+        </button>
+        <button
+          onClick={onDelete}
+          className="w-full py-4 rounded border border-rbc-blue text-rbc-blue font-medium text-[16px] bg-white cursor-pointer"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Cancel or Stop a Payment hub ─────────────────────────────────────────
+function CancelHub({ onBack, onCancelBillPayment }: { onBack: () => void; onCancelBillPayment: () => void }) {
+  return (
+    <div className="flex flex-col bg-white min-h-full pb-24">
+      <BlueHeader title="Cancel or Stop a Payment" onBack={onBack} />
+
+      <SectionHeader title="Bill Payments" />
+      <p className="px-5 py-3 text-[13.5px] text-rbc-dark leading-snug border-b border-[#E5E7EA]">
+        Cancel a bill payment you recently made or delete an upcoming payment you set up with RBC.
+      </p>
+      <CancelRow
+        icon={
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#006AC3" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5V3Z" />
+            <path d="M10 8h4M10 12h4M10 16h2" />
+          </svg>
+        }
+        label="Cancel a Bill Payment"
+        onClick={onCancelBillPayment}
+      />
+      <CancelRow
+        icon={
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#006AC3" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+            <path d="M10 11v6M14 11v6" />
+            <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+          </svg>
+        }
+        label="Delete an Upcoming Payment"
+      />
+
+      <SectionHeader title="Pre-Authorized Payments" />
+      <p className="px-5 py-3 text-[13.5px] text-rbc-dark leading-snug border-b border-[#E5E7EA]">
+        Stop one payment, from a series of recurring payments, you set up with a merchant or organization. For example, a gym membership or online subscription payment.
+      </p>
+      <CancelRow
+        icon={
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#006AC3" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <polyline points="12 7 12 12 15 14" />
+            <path d="M15 5l-2-2M9 5l2-2" strokeWidth="1" opacity="0" />
+          </svg>
+        }
+        label="Stop a Pre-Authorized Payment"
+      />
+
+      <SectionHeader title="Cheques" />
+      <p className="px-5 py-3 text-[13.5px] text-rbc-dark leading-snug border-b border-[#E5E7EA]">
+        Stop a cheque you already issued to the payee.
+      </p>
+      <CancelRow
+        icon={
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#006AC3" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="6" width="18" height="12" rx="2" />
+            <line x1="7" y1="10" x2="17" y2="10" />
+            <line x1="7" y1="14" x2="11" y2="14" />
+          </svg>
+        }
+        label="Stop a Cheque"
+      />
+
+      <div className="px-5 pt-4 flex items-center gap-2">
+        <HelpDot />
+        <span className="text-[13.5px] text-rbc-dark">Can't find the payment you were looking for?</span>
+      </div>
+    </div>
+  );
+}
+
+function CancelRow({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-4 px-5 py-4 text-left cursor-pointer border-b border-[#E5E7EA] active:bg-[#F2F4F5]"
+    >
+      <span className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-rbc-bright/60 shrink-0">
+        {icon}
+      </span>
+      <span className="flex-1 text-[16px] text-rbc-dark">{label}</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
+    </button>
+  );
+}
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="bg-[#F2F4F5] px-5 py-3 border-y border-[#E5E7EA]">
+      <h3 className="text-[15px] text-rbc-dark">{title}</h3>
+    </div>
+  );
+}
+
+// ── Cancel List ──────────────────────────────────────────────────────────
+function CancelList({
+  payments, onBack, onSelect,
+}: {
+  payments: RecentPayment[];
+  onBack: () => void;
+  onSelect: (p: RecentPayment) => void;
+}) {
+  const groups: Record<string, RecentPayment[]> = {};
+  for (const p of payments) (groups[p.date] ??= []).push(p);
+  const dates = Object.keys(groups).sort().reverse();
+
+  return (
+    <div className="flex flex-col bg-white min-h-full pb-24">
+      <BlueHeader title="Cancel Payments" onBack={onBack} />
+
+      <p className="px-5 py-4 text-[15px] text-rbc-dark bg-[#F2F4F5] border-b border-[#E5E7EA] leading-snug">
+        Tap the bill payment that you wish to cancel.
+      </p>
+
+      {payments.length === 0 ? (
+        <div className="px-5 py-10 text-center">
+          <p className="text-[14px] text-rbc-secondary">No recent payments to cancel.</p>
+        </div>
+      ) : (
+        dates.map(date => (
+          <div key={date}>
+            <div className="bg-[#F2F4F5] px-5 py-2 border-b border-[#E5E7EA]">
+              <span className="text-[13px] text-rbc-secondary">{formatDate(date)}</span>
+            </div>
+            {groups[date].map(p => (
+              <button
+                key={p.id}
+                onClick={() => onSelect(p)}
+                className="w-full flex items-center justify-between px-5 py-4 border-b border-[#E5E7EA] text-left cursor-pointer active:bg-[#F2F4F5]"
+              >
+                <div>
+                  <p className="text-[15px] text-rbc-dark">{p.payee}</p>
+                  <p className="text-[12.5px] text-rbc-secondary mt-0.5 tracking-wide">
+                    {p.accountNumber.replace(/[^0-9]/g, '')}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[15px] text-rbc-dark">{formatPlain(p.amount)}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
+                </div>
+              </button>
+            ))}
+          </div>
+        ))
+      )}
+
+      <div className="px-5 py-4">
+        <p className="text-[12.5px] text-rbc-dark leading-snug">
+          Bill payments made on business days before <b>6:00 p.m. (local time)</b> can be cancelled until <b>9:10 p.m. ET</b> on the same day.
+        </p>
+        <p className="text-[12.5px] text-rbc-dark leading-snug mt-3">
+          Bill payments made on weekends or on business days after <b>6:00 p.m. (local time)</b> can be cancelled until <b>9:10 p.m. ET</b> on the next business day.
+        </p>
+        <div className="flex items-center gap-2 mt-4">
+          <HelpDot />
+          <span className="text-[13px] text-rbc-dark">Can't find the bill payment you were looking for?</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Ready to Cancel? ─────────────────────────────────────────────────────
+function CancelConfirm({
+  payment, returnAccount, onBack, onCancelPayment,
+}: {
+  payment: RecentPayment;
+  returnAccount: Account;
+  onBack: () => void;
+  onCancelPayment: () => void;
+}) {
+  return (
+    <div className="flex flex-col bg-[#F2F4F5] min-h-full pb-24">
+      <BlueHeader title="Cancel Payments" onBack={onBack} />
+
+      <div className="px-5 pt-4">
+        <h2 className="text-[20px] font-light text-rbc-dark">Ready to Cancel?</h2>
+      </div>
+
+      <div className="bg-white mt-3">
+        <DetailRow label="Return to" value={`${returnAccount.name} (${returnAccount.accountNumber})`} />
+        <DetailRow label="Refund Amount" value={formatPlain(payment.amount)} />
+        <DetailRow label="Payee" value={payment.payee} />
+        <DetailRow label="Account Number" value={payment.accountNumber.replace(/[^0-9]/g, '')} />
+      </div>
+
+      <p className="px-5 py-4 text-[13.5px] text-rbc-dark leading-snug">
+        Once you cancel this payment, your money will be deposited back into your account immediately.
+      </p>
+      <p className="px-5 pb-2 text-[13.5px] text-rbc-dark leading-snug">
+        Any fees or interest charges you may have incurred when you made this payment will not be reimbursed.
+      </p>
+
+      <div className="px-4 pt-4">
+        <button
+          onClick={onCancelPayment}
+          className="w-full py-4 rounded bg-rbc-blue text-white font-medium text-[16px] cursor-pointer"
+        >
+          Cancel Payment
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Payment Cancelled! ───────────────────────────────────────────────────
+function CancelDone({
+  payment, returnAccount, confirmationNumber, onViewAccount,
+}: {
+  payment: RecentPayment;
+  returnAccount: Account;
+  confirmationNumber: string;
+  onViewAccount: () => void;
+}) {
+  const timeStr = useMemo(() => {
+    const d = new Date();
+    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    const t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase();
+    return `${dateStr} at ${t} PT`;
+  }, []);
+
+  return (
+    <div className="flex flex-col bg-[#F2F4F5] min-h-full pb-24">
+      <BlueHeader title="Cancel Payments" />
+
+      <div className="flex flex-col items-center pt-6 pb-3">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring' as const, stiffness: 260, damping: 18 }}
+          className="w-14 h-14 rounded-full bg-rbc-success flex items-center justify-center"
+        >
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 12 10 18 20 6" /></svg>
+        </motion.div>
+        <h2 className="text-[24px] font-light text-rbc-dark mt-3">Payment Cancelled</h2>
+        <p className="text-[13px] text-rbc-secondary mt-1">{timeStr}</p>
+      </div>
+
+      <p className="px-5 pb-4 text-[13.5px] text-rbc-dark text-center leading-snug">
+        Your payment has been cancelled. The funds or points will be returned to your account.
+      </p>
+
+      <div className="bg-white">
+        <DetailRow label="Return to" value={`${returnAccount.name} (${returnAccount.accountNumber})`} />
+        <DetailRow label="Amount" value={formatPlain(payment.amount)} />
+        <DetailRow label="Payee" value={payment.payee} />
+        <DetailRow label="Account Number" value={payment.accountNumber.replace(/[^0-9]/g, '')} />
+        <DetailRow label="Confirmation #" value={confirmationNumber} />
+      </div>
+
+      <div className="px-4 pt-6">
+        <button
+          onClick={onViewAccount}
+          className="w-full py-4 rounded border border-rbc-blue text-rbc-blue font-medium text-[16px] bg-white cursor-pointer"
+        >
+          View Your Account
+        </button>
+      </div>
     </div>
   );
 }

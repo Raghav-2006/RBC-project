@@ -10,9 +10,10 @@ interface Props {
   onPayABill: (prefillPayee?: Payee) => void;
   onAddPayee: () => void;
   onManagePayees: () => void;
+  onCancelPayment: () => void;
 }
 
-export default function PayBillsHub({ onBack, onPayABill, onAddPayee, onManagePayees }: Props) {
+export default function PayBillsHub({ onBack, onPayABill, onAddPayee, onManagePayees, onCancelPayment }: Props) {
   const frequent = payees[0];
 
   return (
@@ -58,7 +59,7 @@ export default function PayBillsHub({ onBack, onPayABill, onAddPayee, onManagePa
       <div className="bg-[#F2F4F5] px-5 py-3 border-y border-[#E5E7EA]">
         <h3 className="text-[15px] text-rbc-dark">Manage Bills</h3>
       </div>
-      <HubRow icon={<TrashIcon />} label="Cancel or Stop a Payment" />
+      <HubRow icon={<TrashIcon />} label="Cancel or Stop a Payment" onClick={onCancelPayment} />
       <HubRow icon={<PastPaymentsIcon />} label="View Past Payments" />
       <HubRow icon={<UpcomingIcon />} label="View Upcoming Payments" />
       <HubRow icon={<PeopleIcon size={20} stroke="#006AC3" />} label="Manage Payees" onClick={onManagePayees} />
