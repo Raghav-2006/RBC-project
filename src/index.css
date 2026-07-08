@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  --color-rbc-blue: #005DAA;
+  --color-rbc-bright: #006AC3;
+  --color-rbc-bright-light: #73B0E3;
+  --color-rbc-bright-lighter: #C3E2FA;
+  --color-rbc-bright-lightest: #E3F4FF;
+  --color-rbc-gold: #FFD200;
+  --color-rbc-dark: #1A1A1A;
+  --color-rbc-secondary: #6B7280;
+  --color-rbc-bg: #F4F6F8;
+  --color-rbc-success: #1F8B4C;
+  --color-rbc-warning: #D32F2F;
+  --color-rbc-amber: #E89019;
+  --color-rbc-hero-top: #0E5BAC;
+  --color-rbc-hero-bottom: #003E7E;
+  --color-rbc-strip: #F2F4F5;
+  --color-rbc-hairline: #E5E7EA;
+  --font-family-sans: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--font-family-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.text-size-default { font-size: 16px; }
+.text-size-large { font-size: 20px; }
+.text-size-xlarge { font-size: 24px; }
+
+.high-contrast {
+  --color-rbc-dark: #000000;
+  --color-rbc-secondary: #333333;
+  --color-rbc-bg: #FFFFFF;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #C3E2FA; border-radius: 4px; }
+
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
