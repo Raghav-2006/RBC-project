@@ -14,12 +14,21 @@ interface AppContextType {
   resetAll: () => void;
   isIdle: boolean;
   showIdleWarning: boolean;
+  /** Seconds until auto-reset while the warning is showing. 0 outside the warning window. */
+  secondsUntilReset: number;
+  /** Called when the user taps "I'm still here" to keep the session alive. */
+  dismissIdleWarning: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const IDLE_WARNING_MS = 45_000;
-const IDLE_RESET_MS = 60_000;
+// Reasonable timings for a branch kiosk:
+// - Warning at 90s of inactivity
+// - Auto-reset at 120s (30s countdown while the warning is on screen)
+// Enough slack for a Client Advisor to pull a customer aside for a minute.
+const IDLE_WARNING_MS = 90_000;
+const IDLE_RESET_MS = 120_000;
+const COUNTDOWN_TICK_MS = 1_000;
 
 export function AppProvider({ children, onIdleReset }: { children: ReactNode; onIdleReset: () => void }) {
   const [language, setLanguage] = useState<Language>('en');
@@ -27,9 +36,11 @@ export function AppProvider({ children, onIdleReset }: { children: ReactNode; on
   const [highContrast, setHighContrast] = useState(false);
   const [isIdle, setIsIdle] = useState(false);
   const [showIdleWarning, setShowIdleWarning] = useState(false);
+  const [secondsUntilReset, setSecondsUntilReset] = useState(0);
 
   const warningTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const countdownTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const t = useCallback(
     (key: TranslationKey) => translations[language][key],
@@ -42,16 +53,29 @@ export function AppProvider({ children, onIdleReset }: { children: ReactNode; on
     setHighContrast(false);
     setIsIdle(false);
     setShowIdleWarning(false);
+    setSecondsUntilReset(0);
   }, []);
+
+  const clearAllIdleTimers = () => {
+    clearTimeout(warningTimer.current);
+    clearTimeout(resetTimer.current);
+    clearInterval(countdownTimer.current);
+  };
 
   const resetIdleTimers = useCallback(() => {
     setShowIdleWarning(false);
     setIsIdle(false);
-    clearTimeout(warningTimer.current);
-    clearTimeout(resetTimer.current);
+    setSecondsUntilReset(0);
+    clearAllIdleTimers();
 
     warningTimer.current = setTimeout(() => {
       setShowIdleWarning(true);
+      // Start ticking down the seconds shown on the overlay
+      const remainingSeconds = Math.round((IDLE_RESET_MS - IDLE_WARNING_MS) / 1000);
+      setSecondsUntilReset(remainingSeconds);
+      countdownTimer.current = setInterval(() => {
+        setSecondsUntilReset(s => (s > 0 ? s - 1 : 0));
+      }, COUNTDOWN_TICK_MS);
     }, IDLE_WARNING_MS);
 
     resetTimer.current = setTimeout(() => {
@@ -60,6 +84,10 @@ export function AppProvider({ children, onIdleReset }: { children: ReactNode; on
       onIdleReset();
     }, IDLE_RESET_MS);
   }, [resetAll, onIdleReset]);
+
+  const dismissIdleWarning = useCallback(() => {
+    resetIdleTimers();
+  }, [resetIdleTimers]);
 
   useEffect(() => {
     // Skip idle handling when ?screen= debug query param is present
@@ -73,15 +101,14 @@ export function AppProvider({ children, onIdleReset }: { children: ReactNode; on
 
     return () => {
       events.forEach(e => window.removeEventListener(e, handler));
-      clearTimeout(warningTimer.current);
-      clearTimeout(resetTimer.current);
+      clearAllIdleTimers();
     };
   }, [resetIdleTimers]);
 
   const textSizeClass = textSize === 'xlarge' ? 'text-size-xlarge' : textSize === 'large' ? 'text-size-large' : 'text-size-default';
 
   return (
-    <AppContext.Provider value={{ language, setLanguage, textSize, setTextSize, highContrast, setHighContrast, t, resetAll, isIdle, showIdleWarning }}>
+    <AppContext.Provider value={{ language, setLanguage, textSize, setTextSize, highContrast, setHighContrast, t, resetAll, isIdle, showIdleWarning, secondsUntilReset, dismissIdleWarning }}>
       <div className={`h-full ${textSizeClass} ${highContrast ? 'high-contrast' : ''}`}>
         {children}
       </div>
