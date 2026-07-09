@@ -22,12 +22,11 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-// Reasonable timings for a branch kiosk:
-// - Warning at 90s of inactivity
-// - Auto-reset at 120s (30s countdown while the warning is on screen)
-// Enough slack for a Client Advisor to pull a customer aside for a minute.
-const IDLE_WARNING_MS = 90_000;
-const IDLE_RESET_MS = 120_000;
+// Timings for a branch kiosk:
+// - Warning at 45s of inactivity
+// - Auto-reset 10s after the warning (55s total)
+const IDLE_WARNING_MS = 45_000;
+const IDLE_RESET_MS = 55_000;
 const COUNTDOWN_TICK_MS = 1_000;
 
 export function AppProvider({ children, onIdleReset }: { children: ReactNode; onIdleReset: () => void }) {
