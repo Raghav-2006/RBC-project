@@ -431,10 +431,10 @@ export default function AppDashboard({ version, practice }: AppDashboardProps) {
                 target: 'qa-send' as const,
                 icon: <SendIcon size={26} stroke="#006AC3" />,
                 label: 'Send',
-                onClick: () => {
-                  setETransferStartAt(practice ? 'send' : 'hub');
-                  setInETransfer(true);
-                },
+                // Real RBC app behavior: Send tile routes to Move Money hub
+                // so the user sees all money-moving options together,
+                // not just Interac.
+                onClick: () => setActiveTab('moveMoney'),
               },
               {
                 target: 'qa-transfer' as const,

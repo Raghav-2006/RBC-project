@@ -71,13 +71,13 @@ export const practiceScripts: Record<TaskId, PracticeStepDef[]> = {
   sendETransfer: [
     {
       target: 'qa-send',
-      instruction: 'Tap Send on the Home screen to start an Interac e-Transfer.',
+      instruction: 'Tap Send on the Home screen to open Move Money.',
       location: 'home',
     },
     {
       target: 'flow-complete',
-      instruction: 'Choose who to send to, pick your account, enter an amount, then tap Continue.',
-      location: 'eTransferSend',
+      instruction: 'Tap Interac e-Transfer, then Send an Interac e-Transfer, and fill in the details.',
+      location: 'moveMoney',
     },
   ],
   depositCheque: [
